@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getLang } from "@/lib/lang";
 import { getShowcase } from "@/lib/mihomo";
 import { normalizeRoster } from "@/lib/normalize";
 import { getParties } from "@/lib/parties";
@@ -15,20 +16,21 @@ export async function GET(
   { params }: { params: Promise<{ uid: string }> },
 ) {
   const { uid } = await params;
+  const lang = await getLang();
   const raw = new URL(request.url).searchParams.get("raw");
   if (raw) {
-    const showcase = await getShowcase(uid);
+    const showcase = await getShowcase(uid, lang);
     if (!showcase.ok) {
       return NextResponse.json({ error: showcase.message }, { status: showcase.status });
     }
     return NextResponse.json(showcase.data);
   }
   const viewer = await getViewerCookie();
-  const [result, parties] = await Promise.all([getRoster(uid, { viewer }), getParties(uid)]);
+  const [result, parties] = await Promise.all([getRoster(uid, { viewer, lang }), getParties(uid)]);
   if (!result.ok) {
     return NextResponse.json({ error: result.message }, { status: result.status });
   }
-  return NextResponse.json(normalizeRoster(result.roster, parties), {
+  return NextResponse.json(normalizeRoster(result.roster, parties, lang), {
     headers: { "Cache-Control": "public, max-age=60, s-maxage=300" },
   });
 }

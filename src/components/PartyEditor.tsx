@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import GameImage from "./GameImage";
+import { useLang } from "./LangProvider";
 import type { CardModel } from "@/lib/cards";
+import { fmt } from "@/lib/i18n";
 import type { Party } from "@/lib/parties";
 
 const MAX_PARTIES = 12;
@@ -28,6 +30,7 @@ export default function PartyEditor({
   initialVerified: boolean;
   code: string;
 }) {
+  const { d } = useLang();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [verified, setVerified] = useState(initialVerified);
@@ -65,7 +68,7 @@ export default function PartyEditor({
       setMessage(body.message);
       if (body.verified) setVerified(true);
     } catch {
-      setMessage("확인 요청에 실패했습니다.");
+      setMessage(d.editor_fail_verify);
     } finally {
       setBusy(false);
     }
@@ -77,7 +80,7 @@ export default function PartyEditor({
 
   function addParty() {
     if (parties.length >= MAX_PARTIES) return;
-    setParties((ps) => [...ps, { name: `파티${ps.length + 1}`, note: "", members: [] }]);
+    setParties((ps) => [...ps, { name: fmt(d.editor_default_name, { n: ps.length + 1 }), note: "", members: [] }]);
     setTarget({ party: parties.length, slot: 0 });
   }
 
@@ -123,14 +126,14 @@ export default function PartyEditor({
       });
       const body = (await res.json()) as { error?: string };
       if (!res.ok) {
-        setMessage(body.error ?? `저장 실패 (${res.status})`);
+        setMessage(body.error ?? fmt(d.editor_save_failed, { status: res.status }));
         if (res.status === 403) setVerified(false);
         return;
       }
       setOpen(false);
       router.refresh();
     } catch {
-      setMessage("저장 요청에 실패했습니다.");
+      setMessage(d.editor_fail_save);
     } finally {
       setBusy(false);
     }
@@ -142,7 +145,7 @@ export default function PartyEditor({
   if (!open) {
     return (
       <button type="button" onClick={openEditor} className={btn}>
-        파티 편집
+        {d.editor_open}
       </button>
     );
   }
@@ -151,35 +154,35 @@ export default function PartyEditor({
     <div className="mt-3 space-y-4 rounded-xl border border-accent/40 bg-card p-4">
       {!verified ? (
         <div className="space-y-3 text-sm">
-          <p className="font-semibold">본인 확인이 필요합니다</p>
+          <p className="font-semibold">{d.editor_verify_title}</p>
           <ol className="list-decimal space-y-1 pl-5 text-foreground/85">
             <li>
-              게임에서 프로필 → <b>서명</b>에{" "}
+              {d.editor_step1a}{" "}
               <code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-gold">{code}</code>{" "}
-              를 넣고 저장합니다.
+              {d.editor_step1b}
               <br />
-              다른 글과 섞여 있어도 됩니다.
+              {d.editor_step1c}
             </li>
             <li>
-              아래 [서명 확인] 을 누릅니다.
+              {d.editor_step2a}
               <br />
-              반영까지 몇 분 걸릴 수 있습니다.
+              {d.editor_step2b}
             </li>
             <li>
-              확인이 끝나면 서명은 원래대로 돌려도 됩니다.
+              {d.editor_step3a}
               <br />
-              이 브라우저에서 30일간 편집할 수 있습니다.
+              {d.editor_step3b}
             </li>
           </ol>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => claim(false)} disabled={busy} className={primary}>
-              {busy ? "확인 중…" : "서명 확인"}
+              {busy ? d.editor_checking : d.editor_verify}
             </button>
             <button type="button" onClick={() => setShowAdmin(!showAdmin)} className={btn}>
-              관리자 키로 확인
+              {d.editor_admin}
             </button>
             <button type="button" onClick={() => setOpen(false)} className={btn}>
-              닫기
+              {d.editor_close}
             </button>
           </div>
           {showAdmin && (
@@ -192,7 +195,7 @@ export default function PartyEditor({
                 className="h-8 w-64 rounded-md border border-card-border bg-background/60 px-2 text-xs outline-none focus:border-accent"
               />
               <button type="button" onClick={() => claim(true)} disabled={busy || !adminKey} className={btn}>
-                확인
+                {d.editor_confirm}
               </button>
             </div>
           )}
@@ -202,24 +205,24 @@ export default function PartyEditor({
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="font-semibold">
-              파티 편집 <span className="text-xs font-normal text-muted">({parties.length}/{MAX_PARTIES})</span>
+              {d.editor_title} <span className="text-xs font-normal text-muted">({parties.length}/{MAX_PARTIES})</span>
             </span>
             <div className="flex gap-2">
               <button type="button" onClick={addParty} disabled={parties.length >= MAX_PARTIES} className={btn}>
-                + 파티 추가
+                {d.editor_add}
               </button>
               <button type="button" onClick={save} disabled={busy} className={primary}>
-                {busy ? "저장 중…" : "저장"}
+                {busy ? d.editor_saving : d.editor_save}
               </button>
               <button type="button" onClick={() => setOpen(false)} disabled={busy} className={btn}>
-                취소
+                {d.editor_cancel}
               </button>
             </div>
           </div>
           {message && <p className="text-xs text-amber-300">{message}</p>}
 
           {parties.length === 0 && (
-            <p className="text-sm text-muted">아직 파티가 없습니다. [+ 파티 추가] 로 시작하세요.</p>
+            <p className="text-sm text-muted">{d.editor_no_parties}</p>
           )}
 
           <ul className="space-y-2">
@@ -237,18 +240,18 @@ export default function PartyEditor({
                     maxLength={20}
                     onChange={(e) => update(i, { name: e.target.value })}
                     className="h-8 w-32 rounded-md border border-card-border bg-background/60 px-2 text-sm outline-none focus:border-accent"
-                    aria-label="파티 이름"
+                    aria-label={d.editor_name}
                   />
                   <input
                     value={p.note}
                     maxLength={60}
-                    placeholder="메모 (예: 혼돈의 기억 12층 상반)"
+                    placeholder={d.editor_note_placeholder}
                     onChange={(e) => update(i, { note: e.target.value })}
                     className="h-8 min-w-40 flex-1 rounded-md border border-card-border bg-background/60 px-2 text-xs outline-none placeholder:text-muted/60 focus:border-accent"
-                    aria-label="메모"
+                    aria-label={d.editor_note}
                   />
                   <div className="flex gap-1">
-                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className={btn} title="위로">
+                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className={btn} title={d.editor_up}>
                       ↑
                     </button>
                     <button
@@ -256,12 +259,12 @@ export default function PartyEditor({
                       onClick={() => move(i, 1)}
                       disabled={i === parties.length - 1}
                       className={btn}
-                      title="아래로"
+                      title={d.editor_down}
                     >
                       ↓
                     </button>
                     <button type="button" onClick={() => removeParty(i)} className={`${btn} text-red-300`}>
-                      삭제
+                      {d.editor_delete}
                     </button>
                   </div>
                 </div>
@@ -278,7 +281,7 @@ export default function PartyEditor({
                           className={`flex size-16 items-center justify-center overflow-hidden rounded-full border-2 bg-background/40 ${
                             active ? "border-accent" : "border-card-border hover:border-accent/60"
                           }`}
-                          title={c ? c.name : id ? `#${id}` : "캐릭터 선택"}
+                          title={c ? c.name : id ? `#${id}` : d.editor_pick}
                           style={c ? { borderColor: active ? undefined : c.element.color } : undefined}
                         >
                           {c ? (
@@ -294,7 +297,7 @@ export default function PartyEditor({
                             type="button"
                             onClick={() => removeMember(i, slot)}
                             className="absolute -right-1 -top-1 size-5 rounded-full bg-red-500/90 text-[11px] font-bold leading-5 text-white"
-                            title="빼기"
+                            title={d.editor_remove}
                           >
                             ×
                           </button>
@@ -314,12 +317,12 @@ export default function PartyEditor({
             <div className="rounded-lg border border-card-border bg-background/40 p-3">
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-muted">
-                  <b className="text-foreground">{parties[target.party].name}</b> 의 {target.slot + 1}번 자리에 넣을 캐릭터
+                  {fmt(d.editor_slot_hint, { party: parties[target.party].name, n: target.slot + 1 })}
                 </span>
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="이름 검색"
+                  placeholder={d.editor_search}
                   className="ml-auto h-7 w-36 rounded-md border border-card-border bg-background/60 px-2 text-xs outline-none focus:border-accent"
                 />
               </div>

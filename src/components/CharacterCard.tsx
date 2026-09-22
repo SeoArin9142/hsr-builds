@@ -1,10 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import GameImage from "./GameImage";
 import { ElementBadge, PathBadge, RarityStars } from "./Badges";
+import { useLang } from "./LangProvider";
 import type { CardModel } from "@/lib/cards";
+import { fmt } from "@/lib/i18n";
 
 /** 캐릭터 목록용 카드 */
 export default function CharacterCard({ uid, c }: { uid: string; c: CardModel }) {
+  const { d } = useLang();
   return (
     <Link
       href={`/u/${uid}/c/${c.id}`}
@@ -20,11 +25,11 @@ export default function CharacterCard({ uid, c }: { uid: string; c: CardModel })
         />
         <div className="absolute left-2 top-2 flex gap-1">
           <span className="rounded bg-background/70 px-1.5 py-0.5 text-xs font-semibold backdrop-blur">
-            {c.eidolon}성혼
+            {fmt(d.card_eidolon, { n: c.eidolon })}
           </span>
           {c.showcased && (
             <span className="rounded bg-accent/80 px-1.5 py-0.5 text-[11px] font-semibold text-background backdrop-blur">
-              전시
+              {d.card_showcase}
             </span>
           )}
         </div>
@@ -51,11 +56,11 @@ export default function CharacterCard({ uid, c }: { uid: string; c: CardModel })
               <span className="ml-1 text-muted">S{c.lightCone.rank}</span>
             </>
           ) : (
-            <span className="text-muted">광추 없음</span>
+            <span className="text-muted">{d.card_no_lightcone}</span>
           )}
         </div>
         <div className="truncate text-[11px] text-muted">
-          {c.sets.length > 0 ? c.sets.join(" · ") : "유물 없음"}
+          {c.sets.length > 0 ? c.sets.join(" · ") : d.card_no_relics}
         </div>
       </div>
     </Link>

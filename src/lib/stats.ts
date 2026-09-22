@@ -1,3 +1,4 @@
+import { getDict, type Lang } from "./i18n";
 import type { Character, Prop } from "./types";
 
 /**
@@ -39,14 +40,18 @@ const ORDER = [
   "all_dmg",
 ];
 
-// API 는 "기초 HP" 처럼 이름을 주므로 최종 표에서는 짧은 이름으로 바꾼다
-const LABEL: Record<string, string> = {
-  hp: "HP",
-  atk: "공격력",
-  def: "방어력",
-  spd: "속도",
-  sp_rate: "에너지 회복 효율",
-};
+// API 는 "기초 HP" 처럼 이름을 주므로 최종 표에서는 짧은 이름으로 바꾼다 (언어별)
+function labelFor(lang: Lang, field: string, apiName: string): string {
+  const d = getDict(lang);
+  const own: Record<string, string> = {
+    hp: d.f_hp,
+    atk: d.f_atk,
+    def: d.f_def,
+    spd: d.f_spd,
+    sp_rate: d.f_sp_rate,
+  };
+  return own[field] ?? apiName.replace(/^(기초|Base|基礎)\s*/, "");
+}
 
 // attributes 에 없어도 기본값이 0 이 아닌 스탯
 const BASE_DEFAULT: Record<string, number> = {
@@ -58,7 +63,7 @@ function fieldOrder(field: string): number {
   return i === -1 ? ORDER.length : i;
 }
 
-export function buildStatRows(c: Character): StatRow[] {
+export function buildStatRows(c: Character, lang: Lang = "ko"): StatRow[] {
   const rows = new Map<string, StatRow>();
 
   const ensure = (p: Prop): StatRow => {
@@ -66,7 +71,7 @@ export function buildStatRows(c: Character): StatRow[] {
     if (!row) {
       row = {
         field: p.field,
-        name: LABEL[p.field] ?? p.name.replace(/^기초\s*/, ""),
+        name: labelFor(lang, p.field, p.name),
         icon: p.icon,
         percent: p.percent,
         base: BASE_DEFAULT[p.field] ?? 0,
@@ -85,7 +90,7 @@ export function buildStatRows(c: Character): StatRow[] {
   if (!rows.has("sp_rate")) {
     rows.set("sp_rate", {
       field: "sp_rate",
-      name: LABEL.sp_rate,
+      name: getDict(lang).f_sp_rate,
       icon: "icon/property/IconEnergyRecovery.png",
       percent: true,
       base: 1,

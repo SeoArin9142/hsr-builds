@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { checkAdminKey, claimCode, cookieName, issueToken, verifyToken } from "@/lib/claim";
+import { tr } from "@/lib/i18n";
+import { getLang } from "@/lib/lang";
 import { UID_PATTERN } from "@/lib/mihomo";
 
 /**
@@ -9,7 +11,8 @@ import { UID_PATTERN } from "@/lib/mihomo";
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
-  if (!UID_PATTERN.test(uid)) return NextResponse.json({ error: "UID 형식 오류" }, { status: 400 });
+  const lang = await getLang();
+  if (!UID_PATTERN.test(uid)) return NextResponse.json({ error: tr(lang, "api_uid_format") }, { status: 400 });
   const jar = await cookies();
   return NextResponse.json({
     code: claimCode(uid),
@@ -19,7 +22,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ uid: st
 
 export async function POST(req: Request, { params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
-  if (!UID_PATTERN.test(uid)) return NextResponse.json({ error: "UID 형식 오류" }, { status: 400 });
+  const lang = await getLang();
+  if (!UID_PATTERN.test(uid)) return NextResponse.json({ error: tr(lang, "api_uid_format") }, { status: 400 });
 
   let adminKey: string | undefined;
   try {
@@ -33,7 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ uid: st
   let message = "";
   if (adminKey !== undefined) {
     ok = checkAdminKey(adminKey);
-    message = ok ? "관리자 키로 확인되었습니다." : "관리자 키가 틀립니다.";
+    message = tr(lang, ok ? "claim_admin_ok" : "claim_admin_bad");
   } else {
     // 전시 API 를 캐시 없이 다시 읽어 서명을 확인한다 (Mihomo 쪽 캐시 때문에 몇 분 걸릴 수 있음)
     const code = claimCode(uid);
@@ -43,17 +47,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ uid: st
         cache: "no-store",
       });
       if (!res.ok) {
-        message = `전시 API 응답 오류 (${res.status}). 잠시 후 다시 시도해 주세요.`;
+        message = tr(lang, "claim_api_error", { status: res.status });
       } else {
         const data = (await res.json()) as { player?: { signature?: string } };
         const sig = data.player?.signature ?? "";
         ok = sig.toUpperCase().includes(code);
         message = ok
-          ? "서명에서 코드를 확인했습니다. 이제 서명은 원래대로 돌려도 됩니다."
-          : `서명에서 코드 ${code} 를 찾지 못했습니다. 인게임에서 서명을 저장했다면 반영까지 몇 분 걸릴 수 있습니다. (현재 서명: "${sig || "(비어 있음)"}")`;
+          ? tr(lang, "claim_ok")
+          : tr(lang, "claim_missing", { code, sig: sig || tr(lang, "claim_sig_empty") });
       }
     } catch {
-      message = "전시 API 에 연결할 수 없습니다.";
+      message = tr(lang, "claim_conn");
     }
   }
 

@@ -1,3 +1,4 @@
+import { LANGS, tr, type Lang } from "./i18n";
 import type { Showcase } from "./types";
 
 const API = "https://api.mihomo.me/sr_info_parsed";
@@ -16,40 +17,35 @@ export type ShowcaseResult =
   | { ok: true; data: Showcase }
   | { ok: false; status: number; message: string };
 
-const ERROR_MESSAGES: Record<number, string> = {
-  400: "UID 형식이 올바르지 않습니다.",
-  404: "해당 UID 의 플레이어를 찾을 수 없습니다. UID 를 다시 확인해 주세요.",
-  429: "조회 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-};
-
 /**
- * 인게임 "캐릭터 전시" 데이터를 Mihomo API 에서 가져온다.
+ * 인게임 "캐릭터 전시" 데이터를 Mihomo API 에서 가져온다 (이름은 요청 언어로).
  * 5분 캐시 — Mihomo 자체도 캐시하므로 인게임 변경이 반영되기까지는 몇 분 걸릴 수 있다.
  */
-export async function getShowcase(uid: string): Promise<ShowcaseResult> {
+export async function getShowcase(uid: string, lang: Lang = "ko"): Promise<ShowcaseResult> {
   if (!UID_PATTERN.test(uid)) {
-    return { ok: false, status: 400, message: ERROR_MESSAGES[400] };
+    return { ok: false, status: 400, message: tr(lang, "api_uid_format") };
   }
 
   let res: Response;
   try {
-    res = await fetch(`${API}/${uid}?lang=kr`, {
+    res = await fetch(`${API}/${uid}?lang=${LANGS[lang].mihomo}`, {
       headers: { "User-Agent": "hsr-builds/0.1 (personal build viewer)" },
       next: { revalidate: 300 },
     });
   } catch {
-    return {
-      ok: false,
-      status: 503,
-      message: "Mihomo API 에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
-    };
+    return { ok: false, status: 503, message: tr(lang, "api_mihomo_down") };
   }
 
   if (!res.ok) {
-    let message = ERROR_MESSAGES[res.status] ?? `Mihomo API 오류 (${res.status})`;
+    const known: Record<number, string> = {
+      400: tr(lang, "api_uid_format"),
+      404: tr(lang, "api_uid_notfound"),
+      429: tr(lang, "api_too_many"),
+    };
+    let message = known[res.status] ?? tr(lang, "api_mihomo_error", { status: res.status });
     try {
       const body = (await res.json()) as { detail?: string };
-      if (body.detail && !ERROR_MESSAGES[res.status]) message = body.detail;
+      if (body.detail && !known[res.status]) message = body.detail;
     } catch {
       // 본문이 JSON 이 아니면 기본 메시지 사용
     }

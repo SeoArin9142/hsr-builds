@@ -1,3 +1,4 @@
+import { LANGS, type Lang } from "./i18n";
 import { ASSET_BASE } from "./mihomo";
 
 /**
@@ -65,9 +66,9 @@ export interface GameIndex {
   light_cones: Record<string, IndexLightCone>;
 }
 
-async function fetchIndex<T>(name: string): Promise<Record<string, T>> {
+async function fetchIndex<T>(name: string, lang: Lang): Promise<Record<string, T>> {
   try {
-    const res = await fetch(`${ASSET_BASE}index_min/kr/${name}.json`, {
+    const res = await fetch(`${ASSET_BASE}index_min/${LANGS[lang].index}/${name}.json`, {
       next: { revalidate: 86400 },
     });
     if (!res.ok) return {};
@@ -77,14 +78,14 @@ async function fetchIndex<T>(name: string): Promise<Record<string, T>> {
   }
 }
 
-export async function getGameIndex(): Promise<GameIndex> {
+export async function getGameIndex(lang: Lang = "ko"): Promise<GameIndex> {
   const [characters, elements, paths, relics, relic_sets, light_cones] = await Promise.all([
-    fetchIndex<IndexCharacter>("characters"),
-    fetchIndex<IndexElement>("elements"),
-    fetchIndex<IndexPath>("paths"),
-    fetchIndex<IndexRelic>("relics"),
-    fetchIndex<IndexRelicSet>("relic_sets"),
-    fetchIndex<IndexLightCone>("light_cones"),
+    fetchIndex<IndexCharacter>("characters", lang),
+    fetchIndex<IndexElement>("elements", lang),
+    fetchIndex<IndexPath>("paths", lang),
+    fetchIndex<IndexRelic>("relics", lang),
+    fetchIndex<IndexRelicSet>("relic_sets", lang),
+    fetchIndex<IndexLightCone>("light_cones", lang),
   ]);
   return { characters, elements, paths, relics, relic_sets, light_cones };
 }

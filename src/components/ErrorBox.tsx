@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { getDict } from "@/lib/i18n";
+import { getLang } from "@/lib/lang";
 
-export default function ErrorBox({
+export default async function ErrorBox({
   title,
   message,
   uid,
@@ -9,6 +11,7 @@ export default function ErrorBox({
   message: string;
   uid?: string;
 }) {
+  const d = getDict(await getLang());
   return (
     <div className="mx-auto max-w-lg rounded-xl border border-red-500/40 bg-red-500/10 p-6">
       <h1 className="text-lg font-bold">{title}</h1>
@@ -19,7 +22,7 @@ export default function ErrorBox({
       </div>
       {uid && <p className="mt-1 text-xs text-muted">UID {uid}</p>}
       <Link href="/" className="mt-4 inline-block text-sm text-accent hover:underline">
-        ← 처음으로
+        {d.error_home}
       </Link>
     </div>
   );

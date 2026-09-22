@@ -6,6 +6,7 @@ type Status = {
   day: string;
   backend: string;
   cookies: { id: string; ltuidMasked: string; today: number; exhausted: boolean; dead: boolean }[];
+  feedback: { id: string; at: number; message: string; contact?: string; page?: string }[];
 };
 
 /** 사이트 주인용: 쿠키 풀 상태 보기 (EDIT_ADMIN_KEY 필요) */
@@ -109,6 +110,27 @@ export default function AdminPage() {
               이어 넣고 재배포합니다.
             </p>
           </div>
+        </div>
+      )}
+      {status && (
+        <div className="rounded-xl border border-card-border bg-card p-5 text-sm">
+          <h2 className="font-bold">최근 문의 ({status.feedback.length})</h2>
+          {status.feedback.length === 0 ? (
+            <p className="mt-2 text-muted">아직 없습니다.</p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {status.feedback.map((f) => (
+                <li key={f.id} className="rounded-lg border border-card-border bg-background/40 p-3">
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted">
+                    <span>{new Date(f.at).toLocaleString("ko-KR")}</span>
+                    {f.contact && <span>연락처: {f.contact}</span>}
+                    {f.page && <span className="truncate">from: {f.page}</span>}
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap">{f.message}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

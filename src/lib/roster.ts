@@ -1,4 +1,5 @@
 import { getHoyolabRoster, type HoyoCookie, type HoyolabStatus } from "./hoyolab";
+import type { Lang } from "./i18n";
 import { getShowcase } from "./mihomo";
 import { getGameIndex, type GameIndex } from "./starrailres";
 import type { Character, Player } from "./types";
@@ -30,13 +31,15 @@ export type RosterResult =
 export interface RosterOpts {
   viewer?: HoyoCookie | null; // 방문자가 [내 계정 연결]로 준 쿠키
   refresh?: boolean; // 캐시 무시하고 새로 조회
+  lang?: Lang; // 이름 언어
 }
 
 export async function getRoster(uid: string, opts: RosterOpts = {}): Promise<RosterResult> {
-  const index = await getGameIndex();
+  const lang = opts.lang ?? "ko";
+  const index = await getGameIndex(lang);
   const [showcase, hoyolab] = await Promise.all([
-    getShowcase(uid),
-    getHoyolabRoster(uid, index, { viewer: opts.viewer, refresh: opts.refresh }),
+    getShowcase(uid, lang),
+    getHoyolabRoster(uid, index, { viewer: opts.viewer, refresh: opts.refresh, lang }),
   ]);
   if (!showcase.ok) return showcase;
 

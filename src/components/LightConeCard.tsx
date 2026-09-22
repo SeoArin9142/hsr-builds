@@ -1,13 +1,15 @@
 import GameImage from "./GameImage";
 import { PathBadge, RarityStars } from "./Badges";
+import { fmt, getDict, type Lang } from "@/lib/i18n";
 import { levelText } from "@/lib/stats";
 import type { LightCone } from "@/lib/types";
 
-export default function LightConeCard({ lc }: { lc: LightCone | null }) {
+export default function LightConeCard({ lc, lang }: { lc: LightCone | null; lang: Lang }) {
+  const d = getDict(lang);
   if (!lc) {
     return (
       <div className="rounded-lg border border-dashed border-card-border p-4 text-sm text-muted">
-        장착한 광추가 없습니다.
+        {d.lc_none}
       </div>
     );
   }
@@ -24,7 +26,7 @@ export default function LightConeCard({ lc }: { lc: LightCone | null }) {
         <div className="mt-1 flex items-center gap-3 text-xs text-muted">
           <span>{levelText(lc.level, lc.promotion)}</span>
           <span className="rounded bg-accent/15 px-1.5 py-0.5 font-semibold text-gold">
-            {lc.rank}중첩
+            {fmt(d.lc_superimpose, { n: lc.rank })}
           </span>
           <PathBadge {...lc.path} size={14} />
         </div>

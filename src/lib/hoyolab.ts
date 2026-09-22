@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
+import { getDict, LANGS, tr, type Lang } from "./i18n";
 import { getKV, kvBackend, type KV } from "./kvstore";
 import type { GameIndex } from "./starrailres";
 import type {
@@ -199,27 +200,10 @@ const AFFIX_FIELD: Record<number, string> = {
   24: "imaginary_dmg",
 };
 
-const FIELD_NAME: Record<string, string> = {
-  hp: "HP",
-  atk: "공격력",
-  def: "방어력",
-  spd: "속도",
-  crit_rate: "치명타 확률",
-  crit_dmg: "치명타 피해",
-  break_dmg: "격파 특수효과",
-  effect_hit: "효과 명중",
-  effect_res: "효과 저항",
-  sp_rate: "에너지 회복효율",
-  heal_rate: "치유량 보너스",
-  elation_dmg: "환락도",
-  physical_dmg: "물리 속성 피해 증가",
-  fire_dmg: "화염 속성 피해 증가",
-  ice_dmg: "얼음 속성 피해 증가",
-  thunder_dmg: "번개 속성 피해 증가",
-  wind_dmg: "바람 속성 피해 증가",
-  quantum_dmg: "양자 속성 피해 증가",
-  imaginary_dmg: "허수 속성 피해 증가",
-};
+function fieldName(lang: Lang, field: string): string {
+  const d = getDict(lang) as unknown as Record<string, string>;
+  return d[`f_${field}`] ?? field;
+}
 
 const FIELD_ICON: Record<string, string> = {
   hp: "icon/property/IconMaxHP.png",
@@ -287,13 +271,13 @@ export function ds(): string {
 
 /* ---------- 변환 ---------- */
 
-function affix(a: HoyoAffix | null): Prop {
+function affix(a: HoyoAffix | null, lang: Lang): Prop {
   if (!a) return { field: "", name: "-", icon: "", value: 0, display: "-", percent: false };
   const field = AFFIX_FIELD[a.property_type] ?? `p${a.property_type}`;
   return {
     type: String(a.property_type),
     field,
-    name: FIELD_NAME[field] ?? `속성 ${a.property_type}`,
+    name: fieldName(lang, field),
     icon: FIELD_ICON[field] ?? "",
     value: parseNum(a.value),
     display: clean(a.value),
@@ -301,7 +285,7 @@ function affix(a: HoyoAffix | null): Prop {
   };
 }
 
-function toRelic(r: HoyoRelic, idx: GameIndex): Relic {
+function toRelic(r: HoyoRelic, idx: GameIndex, lang: Lang): Relic {
   const ri = idx.relics[String(r.id)];
   const set = ri ? idx.relic_sets[ri.set_id] : undefined;
   return {
@@ -313,9 +297,9 @@ function toRelic(r: HoyoRelic, idx: GameIndex): Relic {
     rarity: r.rarity,
     level: r.level,
     icon: ri?.icon ?? r.icon,
-    main_affix: affix(r.main_property),
+    main_affix: affix(r.main_property, lang),
     sub_affix: (r.properties ?? []).map<SubAffix>((s) => ({
-      ...affix(s),
+      ...affix(s, lang),
       count: s.times,
       step: 0,
     })),
@@ -357,14 +341,14 @@ function toLightCone(e: HoyoEquip | null, idx: GameIndex): LightCone | null {
   };
 }
 
-function toStats(props: HoyoProperty[]): { attributes: Prop[]; additions: Prop[] } {
+function toStats(props: HoyoProperty[], lang: Lang): { attributes: Prop[]; additions: Prop[] } {
   const attributes: Prop[] = [];
   const additions: Prop[] = [];
   for (const p of props) {
     const field = STAT_FIELD[p.property_type];
     if (!field) continue;
     const percent = p.final.includes("%");
-    const meta = { field, name: FIELD_NAME[field], icon: FIELD_ICON[field], percent };
+    const meta = { field, name: fieldName(lang, field), icon: FIELD_ICON[field], percent };
     if (percent) {
       const base = PERCENT_BASE[field] ?? 0;
       const add = parseNum(p.final) - base;
@@ -408,15 +392,15 @@ function toSkills(nodes: HoyoSkill[]): { skills: Skill[]; skill_trees: SkillTree
   return { skills, skill_trees };
 }
 
-export function toCharacter(a: HoyoAvatar, idx: GameIndex): Character {
+export function toCharacter(a: HoyoAvatar, idx: GameIndex, lang: Lang): Character {
   const id = String(a.id);
   const ic = idx.characters[id];
   const elementId = ic?.element ?? ELEMENT_ID[a.element] ?? "Physical";
   const pathId = ic?.path ?? PATH_ID[a.base_type] ?? "Warrior";
   const el = idx.elements[elementId];
   const pa = idx.paths[pathId];
-  const relics = [...(a.relics ?? []), ...(a.ornaments ?? [])].map((r) => toRelic(r, idx));
-  const { attributes, additions } = toStats(a.properties ?? []);
+  const relics = [...(a.relics ?? []), ...(a.ornaments ?? [])].map((r) => toRelic(r, idx, lang));
+  const { attributes, additions } = toStats(a.properties ?? [], lang);
   const { skills, skill_trees } = toSkills(a.skills ?? []);
 
   return {
@@ -508,50 +492,30 @@ const MEM_TTL_MS = 10 * 60 * 1000; // 프로세스 안 1차 캐시
 
 /* ---------- 호출 ---------- */
 
-function mapError(retcode: number, message: string, owned: boolean): HoyolabResult {
+function mapError(retcode: number, message: string, owned: boolean, lang: Lang): HoyolabResult {
   switch (retcode) {
     case 10101:
-      return {
-        status: "limit",
-        message: owned
-          ? "연결한 HoYoLAB 계정의 오늘 조회 한도(30개 UID)가 찼습니다. 내일 다시 시도해 주세요."
-          : "오늘 사이트 전체의 HoYoLAB 조회 한도가 찼습니다. 내일 다시 시도하거나 전시 캐릭터를 참고해 주세요.",
-        characters: [],
-      };
+      return { status: "limit", message: tr(lang, owned ? "hoyo_limit_owned" : "hoyo_limit_pool"), characters: [] };
     case 10102:
-      return {
-        status: "private",
-        message: "이 계정은 HoYoLAB 전적이 비공개라 전시 캐릭터만 보여 줍니다.",
-        characters: [],
-      };
+      return { status: "private", message: tr(lang, "hoyo_private"), characters: [] };
     case 10001:
     case -100:
-      return {
-        status: "expired",
-        message: owned
-          ? "연결한 HoYoLAB 쿠키가 만료되었습니다. [내 계정 연결] 에서 다시 연결해 주세요."
-          : "사이트의 HoYoLAB 로그인이 만료되었습니다. 관리자가 쿠키를 갱신해야 합니다.",
-        characters: [],
-      };
+      return { status: "expired", message: tr(lang, owned ? "hoyo_expired_owned" : "hoyo_expired_pool"), characters: [] };
     case 1034:
-      return {
-        status: "error",
-        message: "HoYoLAB 이 자동 조회를 잠시 막았습니다(캡차). 잠시 후 다시 시도해 주세요.",
-        characters: [],
-      };
+      return { status: "error", message: tr(lang, "hoyo_captcha"), characters: [] };
     default:
-      return { status: "error", message: `HoYoLAB 오류 ${retcode}: ${message}`, characters: [] };
+      return { status: "error", message: tr(lang, "hoyo_error", { code: retcode, msg: message }), characters: [] };
   }
 }
 
 /** HoYoLAB 전적 API 공통 헤더 */
-export function headersFor(ck: { ltuid: string; ltoken: string }): Record<string, string> {
+export function headersFor(ck: { ltuid: string; ltoken: string }, lang: Lang = "ko"): Record<string, string> {
   return {
     Cookie: `ltuid_v2=${ck.ltuid}; ltoken_v2=${ck.ltoken}`,
     DS: ds(),
     "x-rpc-app_version": "1.5.0",
     "x-rpc-client_type": "5",
-    "x-rpc-language": "ko-kr",
+    "x-rpc-language": LANGS[lang].hoyolab,
     Origin: "https://act.hoyolab.com",
     Referer: "https://act.hoyolab.com/",
     "User-Agent":
@@ -564,27 +528,28 @@ async function fetchRoster(
   server: string,
   ck: HoyoCookie,
   idx: GameIndex,
+  lang: Lang,
 ): Promise<HoyolabResult> {
   let res: Response;
   try {
     res = await fetch(`${API}?server=${server}&role_id=${uid}&need_wiki=false`, {
-      headers: headersFor(ck),
+      headers: headersFor(ck, lang),
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
     });
   } catch {
-    return { status: "error", message: "HoYoLAB 에 연결할 수 없습니다.", characters: [] };
+    return { status: "error", message: tr(lang, "hoyo_conn"), characters: [] };
   }
   if (!res.ok) {
     return { status: "error", message: `HoYoLAB HTTP ${res.status}`, characters: [] };
   }
   const body = (await res.json()) as HoyoResponse;
-  if (body.retcode !== 0 || !body.data) return mapError(body.retcode, body.message, !!ck.owned);
+  if (body.retcode !== 0 || !body.data) return mapError(body.retcode, body.message, !!ck.owned, lang);
   // 한 캐릭터의 데이터가 이상해도 나머지는 보여 준다
   const characters: Character[] = [];
   for (const a of body.data.avatar_list ?? []) {
     try {
-      characters.push(toCharacter(a, idx));
+      characters.push(toCharacter(a, idx, lang));
     } catch (e) {
       console.error(`[hoyolab] 캐릭터 ${a?.id} 변환 실패`, e);
     }
@@ -608,6 +573,7 @@ function unpack(packed: string): Character[] {
 export interface RosterOptions {
   viewer?: HoyoCookie | null; // 방문자가 연결한 자기 쿠키 (자기 UID 면 이걸로 새로 받는다)
   refresh?: boolean; // 캐시를 건너뛰고 새로 조회
+  lang?: Lang; // 이름·스탯 이름 언어 (캐시도 언어별)
 }
 
 /** 이 UID 의 주인 쿠키들 (방문자 쿠키 → 풀 순) */
@@ -634,28 +600,26 @@ export async function getHoyolabRoster(
 ): Promise<HoyolabResult> {
   const pool = poolCookies();
   const viewer = opts.viewer ?? null;
+  const lang = opts.lang ?? "ko";
   if (!viewer && pool.length === 0) return { status: "disabled", characters: [] };
   const server = SERVER[uid[0]];
   if (!server) {
-    return {
-      status: "unsupported",
-      message: "중국 서버 UID 는 HoYoLAB 전적으로 조회할 수 없어 전시 캐릭터만 보여 줍니다.",
-      characters: [],
-    };
+    return { status: "unsupported", message: tr(lang, "hoyo_unsupported"), characters: [] };
   }
 
   const kv = getKV();
+  const memKey = `${uid}:${lang}`;
   let cached: HoyolabResult | null = null;
   if (!opts.refresh) {
-    const hit = mem.get(uid);
+    const hit = mem.get(memKey);
     if (hit && Date.now() - hit.at < MEM_TTL_MS) cached = hit.result;
     if (!cached) {
       try {
-        const packed = await kv.get(`hoyo:roster:${uid}`);
+        const packed = await kv.get(`hoyo:roster:${uid}:${lang}`);
         if (packed) {
           const { at, data } = JSON.parse(packed) as { at: number; data: string };
           cached = { status: "ok", characters: unpack(data), fetchedAt: at, cached: true };
-          mem.set(uid, { at: Date.now(), result: cached });
+          mem.set(memKey, { at: Date.now(), result: cached });
         }
       } catch (e) {
         console.error("[hoyolab] 캐시 읽기 실패", e);
@@ -667,18 +631,13 @@ export async function getHoyolabRoster(
   const owners = await ownerCookies(uid, viewer, pool, kv);
   if (owners.length === 0) {
     if (cached) return cached; // 오래됐어도 주인 쿠키가 없으면 그대로
-    return {
-      status: "unlinked",
-      message:
-        "전체 캐릭터는 이 UID 의 주인이 [내 계정 연결]을 한 경우에만 보입니다. 지금은 인게임 전시 캐릭터만 보여 줍니다.",
-      characters: [],
-    };
+    return { status: "unlinked", message: tr(lang, "hoyo_unlinked"), characters: [] };
   }
 
-  const key = `${uid}:${owners.map((c) => c.id).join("|")}`;
+  const key = `${uid}:${lang}:${owners.map((c) => c.id).join("|")}`;
   const pending = inflight.get(key);
   if (pending) return pending;
-  const p = fetchWithCookies(uid, server, idx, owners, kv)
+  const p = fetchWithCookies(uid, server, idx, owners, kv, lang)
     .then((r) => (r.status === "ok" || !cached ? r : cached)) // 새로 받기 실패하면 옛 캐시라도
     .finally(() => inflight.delete(key));
   inflight.set(key, p);
@@ -732,6 +691,7 @@ async function fetchWithCookies(
   idx: GameIndex,
   owners: HoyoCookie[],
   kv: KV,
+  lang: Lang,
 ): Promise<HoyolabResult> {
   const day = dayKey();
   let last: HoyolabResult | null = null;
@@ -743,14 +703,14 @@ async function fetchWithCookies(
       await kv.del(`hoyo:owned:${ck.id}`).catch(() => {});
     }
 
-    const r = await fetchRoster(uid, server, ck, idx);
+    const r = await fetchRoster(uid, server, ck, idx, lang);
     last = r;
     if (r.status === "ok") {
       const at = Date.now();
       await kv.sadd(`hoyo:day:${ck.id}:${day}`, uid, 2 * 86400).catch(() => {});
       const result: HoyolabResult = { ...r, fetchedAt: at, cookieId: ck.id };
-      mem.set(uid, { at, result });
-      kv.set(`hoyo:roster:${uid}`, JSON.stringify({ at, data: pack(r.characters) }), ROSTER_TTL).catch((e) =>
+      mem.set(`${uid}:${lang}`, { at, result });
+      kv.set(`hoyo:roster:${uid}:${lang}`, JSON.stringify({ at, data: pack(r.characters) }), ROSTER_TTL).catch((e) =>
         console.error("[hoyolab] 캐시 쓰기 실패", e),
       );
       return result;
@@ -765,7 +725,7 @@ async function fetchWithCookies(
     }
     return r;
   }
-  return last ?? { status: "error", message: "HoYoLAB 조회에 실패했습니다.", characters: [] };
+  return last ?? { status: "error", message: tr(lang, "hoyo_failed"), characters: [] };
 }
 
 /* ---------- 관리 화면용 상태 ---------- */

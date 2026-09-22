@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { tr } from "@/lib/i18n";
+import { getLang } from "@/lib/lang";
 import { LINK_COOKIE, LINK_DAYS, parseCookieText, sealLink, validateCookie } from "@/lib/link";
 import { getLinkedAccount } from "@/lib/viewer";
 
@@ -15,24 +17,22 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const lang = await getLang();
   let text = "";
   try {
     const body = (await req.json()) as { text?: string };
     text = String(body.text ?? "");
   } catch {
-    return NextResponse.json({ error: "JSON 본문이 필요합니다." }, { status: 400 });
+    return NextResponse.json({ error: tr(lang, "link_bad_json") }, { status: 400 });
   }
   if (text.length > 20000) {
-    return NextResponse.json({ error: "붙여넣은 내용이 너무 깁니다." }, { status: 400 });
+    return NextResponse.json({ error: tr(lang, "link_too_long") }, { status: 400 });
   }
   const parsed = parseCookieText(text);
   if (!parsed) {
-    return NextResponse.json(
-      { error: "ltuid_v2 와 ltoken_v2 를 찾지 못했습니다. HoYoLAB(hoyolab.com) 에 로그인한 상태에서 복사한 내용인지 확인해 주세요." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: tr(lang, "link_not_found") }, { status: 400 });
   }
-  const check = await validateCookie(parsed);
+  const check = await validateCookie(parsed, lang);
   if (!check.ok) return NextResponse.json({ error: check.message }, { status: 400 });
 
   const acc = { ...parsed, nickname: check.nickname, uids: check.uids, at: Date.now() };

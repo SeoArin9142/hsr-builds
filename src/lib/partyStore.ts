@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Party, PartyFile } from "./parties";
+import { tr, type Lang } from "./i18n";
 import { redisConfigured, redisGet, redisSet } from "./redis";
 
 /**
@@ -44,13 +45,15 @@ export async function writeParties(uid: string, file: PartyFile): Promise<void> 
 }
 
 /** 클라이언트가 보낸 파티 목록을 검사해 저장 가능한 형태로 만든다. 문제가 있으면 문자열(이유)을 돌려준다. */
-export function sanitizeParties(input: unknown): Party[] | string {
-  if (!Array.isArray(input)) return "파티 목록 형식이 잘못되었습니다.";
-  if (input.length > MAX_PARTIES) return `파티는 최대 ${MAX_PARTIES}개까지입니다.`;
+export function sanitizeParties(input: unknown, lang: Lang = "ko"): Party[] | string {
+  if (!Array.isArray(input)) return tr(lang, "parties_bad_list");
+  if (input.length > MAX_PARTIES) return tr(lang, "parties_too_many", { max: MAX_PARTIES });
   const out: Party[] = [];
   input.forEach((p, i) => {
     const o = (p ?? {}) as Record<string, unknown>;
-    const name = String(o.name ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_NAME) || `파티${i + 1}`;
+    const name =
+      String(o.name ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_NAME) ||
+      tr(lang, "editor_default_name", { n: i + 1 });
     const note = String(o.note ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_NOTE);
     const rawMembers = Array.isArray(o.members) ? o.members : [];
     const members: string[] = [];

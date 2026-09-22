@@ -1,3 +1,4 @@
+import { getDict, tr, type Lang } from "./i18n";
 import type { PartyFile } from "./parties";
 import type { Roster } from "./roster";
 import { buildStatRows, formatAdd, formatStat, maxLevel } from "./stats";
@@ -8,14 +9,12 @@ import type { Character } from "./types";
  * /api/u/[uid] (JSON) 과 /api/u/[uid]/md (마크다운) 이 이 구조를 쓴다.
  */
 
-const SLOT_NAME: Record<number, string> = {
-  1: "머리",
-  2: "손",
-  3: "몸통",
-  4: "발",
-  5: "차원 구체",
-  6: "연결 밧줄",
-};
+/** 유물 부위 이름 (언어별) */
+export function slotName(lang: Lang, type: number): string {
+  const d = getDict(lang);
+  const names = [d.slot_1, d.slot_2, d.slot_3, d.slot_4, d.slot_5, d.slot_6];
+  return names[type - 1] ?? tr(lang, "slot_other", { n: type });
+}
 
 export interface NormStat {
   field: string;
@@ -101,8 +100,8 @@ function skillLevel(c: Character, anchor: string): number {
   return c.skill_trees.find((t) => t.anchor === anchor)?.level ?? 0;
 }
 
-export function normalizeCharacter(c: Character): NormCharacter {
-  const stats = buildStatRows(c).map((r) => ({
+export function normalizeCharacter(c: Character, lang: Lang = "ko"): NormCharacter {
+  const stats = buildStatRows(c, lang).map((r) => ({
     field: r.field,
     name: r.name,
     base: r.base,
@@ -122,7 +121,7 @@ export function normalizeCharacter(c: Character): NormCharacter {
   const relics = [...c.relics]
     .sort((a, b) => a.type - b.type)
     .map<NormRelic>((r) => ({
-      slot: SLOT_NAME[r.type] ?? `부위 ${r.type}`,
+      slot: slotName(lang, r.type),
       name: r.name,
       set: r.set_name,
       rarity: r.rarity,
@@ -174,7 +173,7 @@ export function normalizeCharacter(c: Character): NormCharacter {
   };
 }
 
-export function normalizeRoster(r: Roster, parties?: PartyFile | null): NormShowcase {
+export function normalizeRoster(r: Roster, parties?: PartyFile | null, lang: Lang = "ko"): NormShowcase {
   const byId = new Map(r.characters.map((c) => [c.id, c]));
   const nameOf = (id: string) => byId.get(id)?.name ?? r.index.characters[id]?.name ?? `#${id}`;
   return {
@@ -200,7 +199,7 @@ export function normalizeRoster(r: Roster, parties?: PartyFile | null): NormShow
       ...(p.note ? { note: p.note } : {}),
       members: p.members.map((id) => ({ id, name: nameOf(id) })),
     })),
-    characters: r.characters.map(normalizeCharacter),
+    characters: r.characters.map((c) => normalizeCharacter(c, lang)),
   };
 }
 
@@ -210,24 +209,48 @@ function lv(level: number, max: number | null): string {
   return max === null ? `Lv.${level}` : `Lv.${level}/${max}`;
 }
 
-export function characterToMarkdown(n: NormCharacter): string {
+export function characterToMarkdown(n: NormCharacter, lang: Lang = "ko"): string {
+  const t = (key: Parameters<typeof tr>[1], vars?: Record<string, string | number>) => tr(lang, key, vars);
   const lines: string[] = [];
   lines.push(
-    `## ${n.name} (${n.rarity}★ ${n.path}/${n.element}) — ${lv(n.level, n.max_level)}, ${n.eidolon}성혼`,
+    "## " +
+      t("md_char_head", {
+        name: n.name,
+        rarity: n.rarity,
+        path: n.path,
+        element: n.element,
+        lv: lv(n.level, n.max_level),
+        e: n.eidolon,
+      }),
   );
   if (n.light_cone) {
     lines.push(
-      `- 광추: ${n.light_cone.name} (${n.light_cone.rarity}★, ${lv(n.light_cone.level, n.light_cone.max_level)}, ${n.light_cone.superimpose}중첩)`,
+      "- " +
+        t("md_lightcone", {
+          name: n.light_cone.name,
+          rarity: n.light_cone.rarity,
+          lv: lv(n.light_cone.level, n.light_cone.max_level),
+          s: n.light_cone.superimpose,
+        }),
     );
   } else {
-    lines.push("- 광추: 없음");
+    lines.push("- " + t("md_lightcone_none"));
   }
   lines.push(
-    `- 행적: 일반 ${n.traces.basic} / 스킬 ${n.traces.skill} / 필살기 ${n.traces.ultimate} / 특성 ${n.traces.talent}, 추가 능력 ${n.traces.majors_learned}/3, 스탯 노드 ${n.traces.stat_nodes_learned}/${n.traces.stat_nodes_total}`,
+    "- " +
+      t("md_traces", {
+        b: n.traces.basic,
+        s: n.traces.skill,
+        u: n.traces.ultimate,
+        t: n.traces.talent,
+        ma: n.traces.majors_learned,
+        sa: n.traces.stat_nodes_learned,
+        sb: n.traces.stat_nodes_total,
+      }),
   );
   lines.push("");
-  lines.push("### 최종 스탯 (기초 + 장비·행적)");
-  lines.push("| 스탯 | 기초 | 가산 | 최종 |");
+  lines.push("### " + t("md_stats_head"));
+  lines.push(t("md_stats_cols"));
   lines.push("|---|---:|---:|---:|");
   for (const s of n.stats) {
     lines.push(
@@ -238,13 +261,22 @@ export function characterToMarkdown(n: NormCharacter): string {
   // 같은 세트는 가장 큰 셋 수만 (2셋+4셋 → 4셋)
   const setMax = new Map<string, number>();
   for (const s of n.relic_sets) setMax.set(s.name, Math.max(setMax.get(s.name) ?? 0, s.pieces));
-  const setLine = [...setMax].map(([name, pieces]) => `${name} ${pieces}셋`).join(", ");
-  lines.push(`### 유물 (세트: ${setLine || "없음"})`);
-  if (n.relics.length === 0) lines.push("- 장착한 유물 없음");
+  const setLine = [...setMax].map(([name, pieces]) => t("md_pieces", { name, n: pieces })).join(", ");
+  lines.push("### " + t("md_relics_head", { sets: setLine || t("md_relics_none_set") }));
+  if (n.relics.length === 0) lines.push("- " + t("md_relics_none"));
   for (const r of n.relics) {
-    const subs = r.subs.map((s) => `${s.name} ${s.display}(${s.rolls}회)`).join(", ");
+    const subs = r.subs.map((s) => t("md_sub", { name: s.name, value: s.display, rolls: s.rolls })).join(", ");
     lines.push(
-      `- [${r.slot}] ${r.name} +${r.level} (${r.rarity}★, ${r.set}) — 메인 ${r.main.name} ${r.main.display} / 부옵 ${subs}`,
+      "- " +
+        t("md_relic_line", {
+          slot: r.slot,
+          name: r.name,
+          lv: r.level,
+          rarity: r.rarity,
+          set: r.set,
+          main: `${r.main.name} ${r.main.display}`,
+          subs,
+        }),
     );
   }
   lines.push("");
@@ -254,27 +286,29 @@ export function characterToMarkdown(n: NormCharacter): string {
 export function showcaseToMarkdown(
   n: NormShowcase,
   opts: { only?: string; showcaseOnly?: boolean } = {},
+  lang: Lang = "ko",
 ): string {
+  const t = (key: Parameters<typeof tr>[1], vars?: Record<string, string | number>) => tr(lang, key, vars);
   let chars = n.characters;
   if (opts.only) chars = chars.filter((c) => c.id === opts.only);
   else if (opts.showcaseOnly) chars = chars.filter((c) => c.source === "showcase");
   const source =
     n.sources.hoyolab.status === "ok"
-      ? `HoYoLAB 전적 ${n.sources.hoyolab.count}명 + 인게임 캐릭터 전시 ${n.sources.showcase}명`
-      : `인게임 캐릭터 전시 ${n.sources.showcase}명 (Mihomo API)`;
+      ? t("md_source_full", { n: n.sources.hoyolab.count, m: n.sources.showcase })
+      : t("md_source_showcase", { m: n.sources.showcase });
   const head = [
-    `# 붕괴: 스타레일 캐릭터 — ${n.nickname} (UID ${n.uid}, 개척 Lv.${n.level}, 균형 Lv.${n.world_level})`,
-    `조회 시각: ${n.fetched_at} · 출처: ${source} · 캐릭터 ${chars.length}명 · 부옵 "(n회)" = 초기 1회 포함 강화 횟수`,
+    "# " + t("md_title", { nick: n.nickname, uid: n.uid, lv: n.level, wl: n.world_level }),
+    t("md_meta", { time: n.fetched_at, source, n: chars.length }),
     "",
   ];
   // 파티는 한 명만 뽑을 때(only)는 빼고, 그 외엔 캐릭터 앞에 둔다
   if (!opts.only && n.parties.length > 0) {
-    head.push("## 파티 편성 (계정 주인이 직접 기록)");
+    head.push("## " + t("md_parties"));
     for (const p of n.parties) {
-      const members = p.members.map((m) => m.name).join(", ") || "(비어 있음)";
+      const members = p.members.map((m) => m.name).join(", ") || t("md_party_empty");
       head.push(`- ${String(p.no).padStart(2, "0")} ${p.name}: ${members}${p.note ? ` — ${p.note}` : ""}`);
     }
     head.push("");
   }
-  return head.concat(chars.map(characterToMarkdown)).join("\n");
+  return head.concat(chars.map((c) => characterToMarkdown(c, lang))).join("\n");
 }

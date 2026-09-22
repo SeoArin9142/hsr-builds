@@ -1,15 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useLang } from "./LangProvider";
 
 /** 서버에서 만든 텍스트를 클립보드로 복사 (AI 채팅에 붙여넣기용) */
-export default function CopyButton({
-  text,
-  label = "AI 평가용 텍스트 복사",
-}: {
-  text: string;
-  label?: string;
-}) {
+export default function CopyButton({ text }: { text: string }) {
+  const { d } = useLang();
   const [state, setState] = useState<"idle" | "done" | "fail">("idle");
 
   async function copy() {
@@ -28,7 +24,7 @@ export default function CopyButton({
       onClick={copy}
       className="rounded-md border border-card-border bg-background/50 px-3 py-1.5 text-xs font-medium hover:border-accent/70"
     >
-      {state === "done" ? "복사됨 ✓" : state === "fail" ? "복사 실패" : label}
+      {state === "done" ? d.char_copied : state === "fail" ? d.char_copy_fail : d.char_copy}
     </button>
   );
 }

@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { headersFor, type HoyoCookie } from "./hoyolab";
+import { tr, type Lang } from "./i18n";
 
 /**
  * "내 계정 연결": 방문자가 자기 HoYoLAB 쿠키를 붙여넣으면
@@ -73,23 +74,26 @@ export type ValidateResult =
   | { ok: false; message: string };
 
 /** 쿠키가 살아 있는지, 어느 스타레일 UID 의 계정인지 HoYoLAB 게임 기록 카드로 확인한다 */
-export async function validateCookie(ck: { ltuid: string; ltoken: string }): Promise<ValidateResult> {
+export async function validateCookie(
+  ck: { ltuid: string; ltoken: string },
+  lang: Lang = "ko",
+): Promise<ValidateResult> {
   let res: Response;
   try {
     res = await fetch(
       `https://bbs-api-os.hoyolab.com/game_record/card/wapi/getGameRecordCard?uid=${ck.ltuid}`,
-      { headers: headersFor(ck), cache: "no-store", signal: AbortSignal.timeout(15000) },
+      { headers: headersFor(ck, lang), cache: "no-store", signal: AbortSignal.timeout(15000) },
     );
   } catch {
-    return { ok: false, message: "HoYoLAB 에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요." };
+    return { ok: false, message: tr(lang, "link_conn") };
   }
-  if (!res.ok) return { ok: false, message: `HoYoLAB 응답 오류 (HTTP ${res.status})` };
+  if (!res.ok) return { ok: false, message: tr(lang, "link_http", { status: res.status }) };
   const body = (await res.json()) as RecordCard;
   if (body.retcode !== 0) {
     if (body.retcode === 10001 || body.retcode === -100) {
-      return { ok: false, message: "쿠키가 유효하지 않거나 만료되었습니다. HoYoLAB 에 다시 로그인한 뒤 새로 복사해 주세요." };
+      return { ok: false, message: tr(lang, "link_invalid") };
     }
-    return { ok: false, message: `HoYoLAB 오류 ${body.retcode}: ${body.message}` };
+    return { ok: false, message: tr(lang, "link_hoyo_error", { code: body.retcode, msg: body.message }) };
   }
   const roles = (body.data?.list ?? []).filter((r) => r.game_id === 6); // 6 = 붕괴: 스타레일
   const uids = roles.map((r) => String(r.game_role_id));

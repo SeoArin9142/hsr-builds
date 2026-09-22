@@ -1,4 +1,5 @@
 import GameImage from "./GameImage";
+import { fmt, getDict, type Lang } from "@/lib/i18n";
 import type { Character, SkillTree } from "@/lib/types";
 
 const SKILL_ANCHORS: Record<string, string> = {
@@ -26,7 +27,8 @@ export function splitSkillTree(trees: SkillTree[]) {
 }
 
 /** 행적(스킬 레벨·추가 능력·스탯 노드)과 성혼 */
-export default function SkillList({ c }: { c: Character }) {
+export default function SkillList({ c, lang }: { c: Character; lang: Lang }) {
+  const d = getDict(lang);
   const { byAnchor, majors, statNodes } = splitSkillTree(c.skill_trees);
   const skills = Object.entries(SKILL_ANCHORS)
     .map(([anchor, type]) => {
@@ -65,7 +67,7 @@ export default function SkillList({ c }: { c: Character }) {
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
         <div className="flex items-center gap-2">
-          <span className="text-muted">추가 능력</span>
+          <span className="text-muted">{d.skills_majors}</span>
           <div className="flex gap-1.5">
             {majors.map((t) => (
               <div
@@ -75,19 +77,19 @@ export default function SkillList({ c }: { c: Character }) {
                     ? "border-gold bg-accent/15"
                     : "border-card-border bg-background/40 opacity-40"
                 }`}
-                title={t.level > 0 ? "습득" : "미습득"}
+                title={t.level > 0 ? d.skills_learned : d.skills_unlearned}
               >
                 <GameImage path={t.icon} alt="" fill sizes="36px" className="object-contain p-1" />
               </div>
             ))}
           </div>
           <span className="text-xs text-muted">
-            스탯 노드 {statLearned}/{statNodes.length}
+            {fmt(d.skills_stat_nodes, { a: statLearned, b: statNodes.length })}
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-muted">성혼</span>
+          <span className="text-muted">{d.skills_eidolon}</span>
           <div className="flex gap-1.5">
             {c.rank_icons.map((icon, i) => {
               const active = i < c.rank;
@@ -97,14 +99,14 @@ export default function SkillList({ c }: { c: Character }) {
                   className={`relative size-9 overflow-hidden rounded-full border ${
                     active ? "border-gold bg-accent/15" : "border-card-border bg-background/40 opacity-40"
                   }`}
-                  title={`${i + 1}성혼`}
+                  title={fmt(d.skills_eidolon_n, { n: i + 1 })}
                 >
-                  <GameImage path={icon} alt={`${i + 1}성혼`} fill sizes="36px" className="object-contain p-1" />
+                  <GameImage path={icon} alt={fmt(d.skills_eidolon_n, { n: i + 1 })} fill sizes="36px" className="object-contain p-1" />
                 </div>
               );
             })}
           </div>
-          <span className="font-semibold">{c.rank}성혼</span>
+          <span className="font-semibold">{fmt(d.skills_eidolon_n, { n: c.rank })}</span>
         </div>
       </div>
     </div>

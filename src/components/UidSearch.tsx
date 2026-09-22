@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useLang } from "./LangProvider";
 
 const UID_PATTERN = /^\d{9,10}$/;
 
@@ -12,6 +13,7 @@ export default function UidSearch({
   size?: "sm" | "lg";
   defaultValue?: string;
 }) {
+  const { d } = useLang();
   const router = useRouter();
   const [uid, setUid] = useState(defaultValue);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export default function UidSearch({
     e.preventDefault();
     const value = uid.trim();
     if (!UID_PATTERN.test(value)) {
-      setError("UID 는 9~10자리 숫자입니다.");
+      setError(d.search_error);
       return;
     }
     setError(null);
@@ -34,7 +36,7 @@ export default function UidSearch({
       <div className="flex gap-2">
         <input
           inputMode="numeric"
-          placeholder="UID 입력 (예: 800133616)"
+          placeholder={d.search_placeholder}
           value={uid}
           onChange={(e) => setUid(e.target.value)}
           className={`min-w-0 rounded-md border border-card-border bg-background/60 px-3 outline-none placeholder:text-muted/70 focus:border-accent ${
@@ -48,7 +50,7 @@ export default function UidSearch({
             lg ? "h-12 px-6 text-base" : "h-9 px-3 text-sm"
           }`}
         >
-          조회
+          {d.search_button}
         </button>
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}

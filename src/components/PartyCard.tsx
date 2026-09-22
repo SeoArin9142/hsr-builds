@@ -1,15 +1,17 @@
 import Link from "next/link";
 import GameImage from "./GameImage";
 import { ElementBadge, PathBadge } from "./Badges";
+import { fmt, getDict, type Lang } from "@/lib/i18n";
 import type { Party } from "@/lib/parties";
 import type { MemberView } from "@/lib/members";
 
-function MemberSlot({ uid, member }: { uid: string; member: MemberView | null }) {
+function MemberSlot({ uid, member, lang }: { uid: string; member: MemberView | null; lang: Lang }) {
+  const d = getDict(lang);
   if (!member) {
     return (
       <div className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-card-border/70 p-2 text-muted/60">
         <div className="size-16 rounded-full border border-dashed border-card-border/70" />
-        <span className="text-xs">비어 있음</span>
+        <span className="text-xs">{d.party_slot_empty}</span>
       </div>
     );
   }
@@ -36,7 +38,7 @@ function MemberSlot({ uid, member }: { uid: string; member: MemberView | null })
       </div>
       {c ? (
         <div className="text-[11px] text-muted">
-          Lv.{c.level} · {c.rank}성혼
+          {fmt(d.party_member_line, { lv: c.level, e: c.rank })}
           {c.light_cone && (
             <div className="mt-0.5 line-clamp-1 max-w-[9rem] text-[11px] text-foreground/70">
               {c.light_cone.name}
@@ -44,7 +46,7 @@ function MemberSlot({ uid, member }: { uid: string; member: MemberView | null })
           )}
         </div>
       ) : (
-        <div className="text-[11px] text-muted/70">상세 없음</div>
+        <div className="text-[11px] text-muted/70">{d.party_no_detail}</div>
       )}
     </div>
   );
@@ -62,11 +64,14 @@ export default function PartyCard({
   uid,
   party,
   members,
+  lang,
 }: {
   uid: string;
   party: Party;
   members: (MemberView | null)[]; // 길이 4
+  lang: Lang;
 }) {
+  const d = getDict(lang);
   const empty = members.every((m) => m === null);
   return (
     <section className="rounded-xl border border-card-border bg-card p-4">
@@ -80,11 +85,11 @@ export default function PartyCard({
         {party.note && <span className="text-xs text-muted">{party.note}</span>}
       </header>
       {empty ? (
-        <p className="py-6 text-center text-sm text-muted/70">편성 없음</p>
+        <p className="py-6 text-center text-sm text-muted/70">{d.party_none}</p>
       ) : (
         <div className="grid grid-cols-4 gap-2">
           {members.map((m, i) => (
-            <MemberSlot key={m?.id ?? `empty-${i}`} uid={uid} member={m} />
+            <MemberSlot key={m?.id ?? `empty-${i}`} uid={uid} member={m} lang={lang} />
           ))}
         </div>
       )}

@@ -3,10 +3,13 @@
 import { useMemo, useState } from "react";
 import CharacterCard from "./CharacterCard";
 import GameImage from "./GameImage";
+import { useLang } from "./LangProvider";
 import type { CardModel } from "@/lib/cards";
+import { fmt } from "@/lib/i18n";
 
 /** 캐릭터 목록 + 속성·운명의 길·희귀도·전시 필터 */
 export default function RosterGrid({ uid, cards }: { uid: string; cards: CardModel[] }) {
+  const { d } = useLang();
   const [element, setElement] = useState<string | null>(null);
   const [path, setPath] = useState<string | null>(null);
   const [rarity, setRarity] = useState<number | null>(null);
@@ -78,17 +81,17 @@ export default function RosterGrid({ uid, cards }: { uid: string; cards: CardMod
             onClick={() => setShowcasedOnly(!showcasedOnly)}
             className={chip(showcasedOnly)}
           >
-            전시만
+            {d.filter_showcase_only}
           </button>
         </div>
         <span className="ml-auto text-xs text-muted">
-          {shown.length}/{cards.length}명
+          {fmt(d.filter_count, { shown: shown.length, total: cards.length })}
         </span>
       </div>
 
       {shown.length === 0 ? (
         <p className="rounded-lg border border-card-border bg-card p-6 text-center text-sm text-muted">
-          조건에 맞는 캐릭터가 없습니다.
+          {d.filter_none}
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

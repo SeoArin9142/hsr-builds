@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { cookieName, verifyToken } from "@/lib/claim";
+import { tr } from "@/lib/i18n";
+import { getLang } from "@/lib/lang";
 import { UID_PATTERN } from "@/lib/mihomo";
 import { readParties, sanitizeParties, writeParties } from "@/lib/partyStore";
 
@@ -11,27 +13,30 @@ import { readParties, sanitizeParties, writeParties } from "@/lib/partyStore";
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
-  if (!UID_PATTERN.test(uid)) return NextResponse.json({ error: "UID 형식 오류" }, { status: 400 });
+  if (!UID_PATTERN.test(uid)) {
+    return NextResponse.json({ error: tr(await getLang(), "api_uid_format") }, { status: 400 });
+  }
   const file = await readParties(uid);
   return NextResponse.json(file ?? { uid, parties: [] });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
-  if (!UID_PATTERN.test(uid)) return NextResponse.json({ error: "UID 형식 오류" }, { status: 400 });
+  const lang = await getLang();
+  if (!UID_PATTERN.test(uid)) return NextResponse.json({ error: tr(lang, "api_uid_format") }, { status: 400 });
 
   const jar = await cookies();
   if (!verifyToken(uid, jar.get(cookieName(uid))?.value)) {
-    return NextResponse.json({ error: "편집 권한이 없습니다. 본인 확인을 먼저 해 주세요." }, { status: 403 });
+    return NextResponse.json({ error: tr(lang, "parties_forbidden") }, { status: 403 });
   }
 
   let body: { parties?: unknown };
   try {
     body = (await req.json()) as { parties?: unknown };
   } catch {
-    return NextResponse.json({ error: "JSON 본문이 필요합니다." }, { status: 400 });
+    return NextResponse.json({ error: tr(lang, "parties_bad_json") }, { status: 400 });
   }
-  const parties = sanitizeParties(body.parties);
+  const parties = sanitizeParties(body.parties, lang);
   if (typeof parties === "string") return NextResponse.json({ error: parties }, { status: 400 });
 
   const file = { uid, updated: new Date().toISOString().slice(0, 10), parties };
@@ -39,7 +44,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ uid: str
     await writeParties(uid, file);
   } catch (e) {
     console.error("[parties] 저장 실패", e);
-    return NextResponse.json({ error: "저장에 실패했습니다 (서버 저장소 오류)." }, { status: 500 });
+    return NextResponse.json({ error: tr(lang, "parties_save_failed") }, { status: 500 });
   }
   return NextResponse.json(file);
 }
