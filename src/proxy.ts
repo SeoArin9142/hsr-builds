@@ -2,14 +2,19 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * 모든 페이지·API 요청이 지나가는 곳. 두 가지를 한다.
- *  1) 속도 제한 — IP 당 분당 120회. 스크립트로 UID 를 대량 조회해 외부 API 한도와 서버 비용을 태우는 것을 막는다.
+ *  1) 속도 제한 — IP 당 분당 120회(봇·스크립트 UA 는 20회), 그리고 IP 당 10분에 서로 다른 UID 30개.
+ *     같은 UID 반복은 캐시라 싸지만 새 UID 마다 외부 API(Mihomo)를 부르므로, 한 사람이 엉터리 UID 를
+ *     쏟아부어 외부 API 가 우리를 차단하게 만드는 것을 막는다.
  *  2) 방문 집계 — 페이지 요청만(API·미리보기 이미지·봇·프리페치 제외) 페이지뷰와 고유 방문자(HyperLogLog)를 센다.
  *     방문자 구분용으로 무작위 ID 쿠키(hsrb_vid)를 둔다. 개인정보는 없다.
  * Redis 가 있으면 인스턴스가 여러 개여도 같이 세고, 없으면(로컬) 속도 제한만 메모리로 한다.
  */
 
 const LIMIT = 120;
+const BOT_LIMIT = 20;
 const WINDOW_SECONDS = 60;
+const UID_LIMIT = 30; // 10분당 서로 다른 UID
+const UID_WINDOW_SECONDS = 600;
 const VID_COOKIE = "hsrb_vid";
 const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|preview|fetch|curl|wget|python|node|java|go-http|headless/i;
 
@@ -72,15 +77,50 @@ function isPageView(req: NextRequest): boolean {
   return true;
 }
 
+function tooMany(retryAfter: number): NextResponse {
+  return new NextResponse("Too many requests. Please slow down.", {
+    status: 429,
+    headers: { "Retry-After": String(retryAfter), "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+
+/** 이 IP 가 최근 10분 안에 조회한 서로 다른 UID 수 (이번 UID 포함) */
+async function distinctUids(ip: string, uid: string): Promise<number> {
+  const win = Math.floor(Date.now() / 1000 / UID_WINDOW_SECONDS);
+  const key = `rlu:${ip}:${win}`;
+  const out = await pipeline([
+    ["SADD", key, uid],
+    ["SCARD", key],
+    ["EXPIRE", key, UID_WINDOW_SECONDS * 2],
+  ]);
+  if (out) {
+    const n = out[1]?.result;
+    return typeof n === "number" ? n : 0;
+  }
+  // Redis 없을 때(로컬)는 메모리 카운터로 대충
+  const memKey = `${key}:${uid}`;
+  if (!mem.has(memKey)) {
+    mem.set(memKey, { n: 1, exp: Date.now() + UID_WINDOW_SECONDS * 1000 });
+    const c = mem.get(key) ?? { n: 0, exp: Date.now() + UID_WINDOW_SECONDS * 1000 };
+    c.n += 1;
+    mem.set(key, c);
+  }
+  return mem.get(key)?.n ?? 0;
+}
+
 export async function proxy(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+  const ua = req.headers.get("user-agent") ?? "";
+  const isBot = BOT_UA.test(ua) || !ua;
   const minute = Math.floor(Date.now() / 1000 / WINDOW_SECONDS);
   const n = await rateCount(`rl:${ip}:${minute}`);
-  if (n > LIMIT) {
-    return new NextResponse("Too many requests. Please slow down.", {
-      status: 429,
-      headers: { "Retry-After": String(WINDOW_SECONDS), "Content-Type": "text/plain; charset=utf-8" },
-    });
+  if (n > (isBot ? BOT_LIMIT : LIMIT)) return tooMany(WINDOW_SECONDS);
+
+  // 새 UID 조회는 외부 API 를 부르므로 따로 센다 (/u/{uid}, /api/u/{uid}...)
+  const m = req.nextUrl.pathname.match(/^\/(?:api\/)?u\/(\d{9,10})(?:\/|$)/);
+  if (m && !req.nextUrl.pathname.includes("opengraph-image")) {
+    const distinct = await distinctUids(ip, m[1]);
+    if (distinct > UID_LIMIT) return tooMany(UID_WINDOW_SECONDS);
   }
 
   const res = NextResponse.next();

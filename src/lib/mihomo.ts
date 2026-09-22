@@ -1,4 +1,5 @@
 import { LANGS, tr, type Lang } from "./i18n";
+import { getKV } from "./kvstore";
 import type { Showcase } from "./types";
 
 const API = "https://api.mihomo.me/sr_info_parsed";
@@ -25,6 +26,15 @@ export async function getShowcase(uid: string, lang: Lang = "ko"): Promise<Showc
   if (!UID_PATTERN.test(uid)) {
     return { ok: false, status: 400, message: tr(lang, "api_uid_format") };
   }
+  const kv = getKV();
+  // Mihomo 가 우리를 잠시 막았으면(429) 60초는 부르지 않는다 — 한 사람 때문에 전체가 계속 막히는 것을 피한다
+  if (await kv.get("mihomo:cooldown").catch(() => null)) {
+    return { ok: false, status: 429, message: tr(lang, "api_too_many") };
+  }
+  // 없는 UID 는 10분간 기억해 두고 다시 묻지 않는다 (엉터리 UID 난사 대비)
+  if (await kv.get(`mihomo:404:${uid}`).catch(() => null)) {
+    return { ok: false, status: 404, message: tr(lang, "api_uid_notfound") };
+  }
 
   let res: Response;
   try {
@@ -37,6 +47,8 @@ export async function getShowcase(uid: string, lang: Lang = "ko"): Promise<Showc
   }
 
   if (!res.ok) {
+    if (res.status === 429) await kv.set("mihomo:cooldown", "1", 60).catch(() => {});
+    if (res.status === 404) await kv.set(`mihomo:404:${uid}`, "1", 600).catch(() => {});
     const known: Record<number, string> = {
       400: tr(lang, "api_uid_format"),
       404: tr(lang, "api_uid_notfound"),
