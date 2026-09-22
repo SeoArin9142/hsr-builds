@@ -210,6 +210,14 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           right={
             <span className="inline-flex items-center gap-2">
               <span>{sourceLine}</span>
+              {cards.length > 1 && (
+                <Link
+                  href={`/u/${uid}/compare`}
+                  className="rounded border border-card-border px-1.5 py-0.5 text-[11px] hover:border-accent/70 hover:text-foreground"
+                >
+                  {d.cmp_open}
+                </Link>
+              )}
               {canRefresh && hoyolab.status === "ok" && (
                 <a
                   href={`/u/${uid}?refresh=1`}

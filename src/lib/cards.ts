@@ -1,5 +1,5 @@
 import type { Lang } from "./i18n";
-import { gradeOf, scoreCharacter } from "./score";
+import { scoreCharacter } from "./score";
 import { buildStatRows, maxLevel } from "./stats";
 import type { Character } from "./types";
 
@@ -54,6 +54,6 @@ export function toCardModel(c: Character, lang: Lang = "ko", reco?: number[]): C
       spd: String(Math.floor(pick("spd") + 1e-6)),
     },
     score: c.relics.length > 0 ? Math.round(sc.targets.length > 0 ? sc.build : sc.total) : null,
-    grade: c.relics.length > 0 ? gradeOf(sc.total) : "",
+    grade: c.relics.length > 0 ? sc.grade : "",
   };
 }

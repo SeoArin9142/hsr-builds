@@ -58,7 +58,7 @@ const BASE_DEFAULT: Record<string, number> = {
   sp_rate: 1, // 에너지 회복 효율 100%
 };
 
-function fieldOrder(field: string): number {
+export function fieldOrder(field: string): number {
   const i = ORDER.indexOf(field);
   return i === -1 ? ORDER.length : i;
 }

@@ -10,7 +10,7 @@ import { quotaPage } from "@/lib/quotaPage";
  *     방문자 구분용으로 무작위 ID 쿠키(hsrb_vid)를 둔다. 개인정보는 없다.
  *  3) 월 한도 — 무료 호스팅(Vercel·Upstash)의 한도에 닿기 전에 우리가 먼저 멈춘다. 이번 달 요청 수가
  *     MONTHLY_BUDGET(기본 50,000)을 넘거나 Redis 가 "월 한도 초과" 를 돌려주면, 다음 달 1일 00시(KST)까지
- *     안내 화면(503)을 보여 준다. /admin 은 예외.
+ *     안내 화면(503)을 보여 준다. /admin 과 /api/cron 은 예외.
  * Redis 가 없으면(로컬) 메모리로만 동작한다.
  */
 
@@ -101,7 +101,9 @@ export async function proxy(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
   const ua = req.headers.get("user-agent") ?? "";
   const isBot = BOT_UA.test(ua) || !ua;
-  const isAdmin = path.startsWith("/admin") || path.startsWith("/api/admin");
+  // 관리 화면과 하루 한 번 도는 점검은 월 한도 안내 화면을 건너뛴다 (막혔을 때야말로 봐야 하므로)
+  const isAdmin =
+    path.startsWith("/admin") || path.startsWith("/api/admin") || path.startsWith("/api/cron");
 
   // 1) 분당 요청 수 (메모리 — Redis 명령을 아낀다)
   const minute = Math.floor(Date.now() / 1000 / WINDOW_SECONDS);

@@ -116,6 +116,12 @@ export default async function CharacterPage({ params }: Props) {
 
             <div className="mt-4 flex flex-wrap gap-2">
               <CopyButton text={markdown} />
+              <Link
+                href={`/u/${uid}/compare?c=${c.id}`}
+                className="rounded-md border border-card-border bg-background/50 px-3 py-1.5 text-xs font-medium hover:border-accent/70"
+              >
+                {d.cmp_open}
+              </Link>
               <a
                 href={`/api/u/${uid}/md?c=${c.id}`}
                 target="_blank"
