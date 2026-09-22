@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ElementBadge, PathBadge, RarityStars, SectionTitle } from "@/components/Badges";
+import BuildReview from "@/components/BuildReview";
 import CopyButton from "@/components/CopyButton";
 import ErrorBox from "@/components/ErrorBox";
 import GameImage from "@/components/GameImage";
@@ -12,7 +13,9 @@ import { fmt, getDict } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 import { getShowcase } from "@/lib/mihomo";
 import { characterToMarkdown, normalizeCharacter } from "@/lib/normalize";
+import { getReco } from "@/lib/reco";
 import { getRoster } from "@/lib/roster";
+import { scoreCharacter } from "@/lib/score";
 import { charName, getGameIndex } from "@/lib/starrailres";
 import { levelText } from "@/lib/stats";
 import { getViewerCookie } from "@/lib/viewer";
@@ -54,7 +57,9 @@ export default async function CharacterPage({ params }: Props) {
     return <ErrorBox title={fmt(d.char_notfound_title, { name })} message={why} uid={uid} />;
   }
 
-  const markdown = characterToMarkdown(normalizeCharacter(c, lang), lang);
+  const reco = await getReco();
+  const score = scoreCharacter(c, reco[c.id]);
+  const markdown = characterToMarkdown(normalizeCharacter(c, lang, score), lang);
   const fromHoyolab = c.source === "hoyolab";
 
   return (
@@ -102,6 +107,12 @@ export default async function CharacterPage({ params }: Props) {
               <StatTable c={c} lang={lang} />
             </div>
 
+            {c.relics.length > 0 && (
+              <div className="mt-5">
+                <BuildReview c={c} score={score} lang={lang} />
+              </div>
+            )}
+
             <div className="mt-4 flex flex-wrap gap-2">
               <CopyButton text={markdown} />
               <a
@@ -133,7 +144,7 @@ export default async function CharacterPage({ params }: Props) {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {sortRelics(c.relics).map((r) => (
-                <RelicCard key={r.id + r.type} r={r} lang={lang} />
+                <RelicCard key={r.id + r.type} r={r} lang={lang} score={score.relics.get(r.id + r.type)} />
               ))}
             </div>
           )}

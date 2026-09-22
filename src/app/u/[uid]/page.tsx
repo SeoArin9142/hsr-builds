@@ -11,6 +11,7 @@ import { SectionTitle } from "@/components/Badges";
 import { toCardModel } from "@/lib/cards";
 import { cookieName, verifyToken } from "@/lib/claim";
 import { getEndgame } from "@/lib/endgame";
+import { getReco } from "@/lib/reco";
 import { fmt, getDict, LANGS } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 import { resolveMember } from "@/lib/members";
@@ -64,7 +65,8 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   const byId = new Map(characters.map((c) => [c.id, c]));
   const space = player.space_info;
   const parties = partyFile?.parties ?? [];
-  const cards = characters.map(toCardModel);
+  const reco = await getReco();
+  const cards = characters.map((c) => toCardModel(c, lang, reco[c.id]));
 
   const dataTime = hoyolab.fetchedAt
     ? new Date(hoyolab.fetchedAt).toLocaleString(LANGS[lang].locale, {

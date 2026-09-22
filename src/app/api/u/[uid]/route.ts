@@ -5,6 +5,7 @@ import { normalizeRoster } from "@/lib/normalize";
 import { getParties } from "@/lib/parties";
 import { getRoster } from "@/lib/roster";
 import { getEndgame } from "@/lib/endgame";
+import { getReco } from "@/lib/reco";
 import { getViewerCookie } from "@/lib/viewer";
 
 /**
@@ -32,7 +33,8 @@ export async function GET(
     return NextResponse.json({ error: result.message }, { status: result.status });
   }
   const endgame = await getEndgame(uid, result.roster.index, { viewer, lang });
-  return NextResponse.json(normalizeRoster(result.roster, parties, lang, endgame.records), {
+  const reco = await getReco();
+  return NextResponse.json(normalizeRoster(result.roster, parties, lang, endgame.records, reco), {
     headers: { "Cache-Control": "public, max-age=60, s-maxage=300" },
   });
 }

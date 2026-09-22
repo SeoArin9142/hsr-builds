@@ -2,14 +2,31 @@ import GameImage from "./GameImage";
 import { RarityStars } from "./Badges";
 import { fmt, getDict, type Lang } from "@/lib/i18n";
 import { slotName } from "@/lib/normalize";
+import type { RelicScore } from "@/lib/score";
 import type { Relic, RelicSet } from "@/lib/types";
 
 export function sortRelics(relics: Relic[]): Relic[] {
   return [...relics].sort((a, b) => a.type - b.type);
 }
 
-export function RelicCard({ r, lang }: { r: Relic; lang: Lang }) {
+export function RelicCard({ r, lang, score }: { r: Relic; lang: Lang; score?: RelicScore }) {
   const d = getDict(lang);
+  const mainTitle =
+    score?.mainVerdict === "good"
+      ? d.sc_main_verdict_good
+      : score?.mainVerdict === "maybe"
+        ? d.sc_main_verdict_maybe
+        : score?.mainVerdict === "bad"
+          ? d.sc_main_verdict_bad
+          : undefined;
+  const mainMark =
+    score?.mainVerdict === "good" ? "✓" : score?.mainVerdict === "maybe" ? "○" : score?.mainVerdict === "bad" ? "✗" : "";
+  const mainColor =
+    score?.mainVerdict === "good"
+      ? "text-emerald-300"
+      : score?.mainVerdict === "maybe"
+        ? "text-muted"
+        : "text-amber-300";
   return (
     <div className="flex gap-3 rounded-lg border border-card-border bg-background/40 p-3">
       <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-card">
@@ -21,19 +38,33 @@ export function RelicCard({ r, lang }: { r: Relic; lang: Lang }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-xs text-muted">{slotName(lang, r.type)}</span>
-          <RarityStars rarity={r.rarity} />
+          <span className="flex items-center gap-2">
+            {score && (
+              <span className="text-xs tabular-nums text-muted" title={fmt(d.sc_rolls, { n: score.rolls.toFixed(1) })}>
+                {Math.round(score.score)}
+              </span>
+            )}
+            <RarityStars rarity={r.rarity} />
+          </span>
         </div>
         <div className="truncate text-sm font-semibold">{r.name}</div>
         <div className="mt-1 flex items-center justify-between border-b border-card-border/60 pb-1 text-sm">
           <span className="inline-flex items-center gap-1.5">
             <GameImage path={r.main_affix.icon} alt="" width={16} height={16} />
             {r.main_affix.name}
+            {mainMark && (
+              <span className={`text-[11px] ${mainColor}`} title={mainTitle}>
+                {mainMark}
+              </span>
+            )}
           </span>
           <span className="font-semibold tabular-nums text-gold">{r.main_affix.display}</span>
         </div>
         <ul className="mt-1 space-y-0.5 text-xs">
-          {r.sub_affix.map((s) => (
-            <li key={s.type ?? s.field} className="flex items-center justify-between gap-2">
+          {r.sub_affix.map((s) => {
+            const useful = (score?.subs.find((x) => x.field === s.field)?.weight ?? 0) > 0;
+            return (
+            <li key={s.type ?? s.field} className={`flex items-center justify-between gap-2 ${useful ? "" : "opacity-45"}`}>
               <span className="inline-flex items-center gap-1.5 text-foreground/85">
                 <GameImage path={s.icon} alt="" width={14} height={14} className="opacity-80" />
                 {s.name}
@@ -43,9 +74,10 @@ export function RelicCard({ r, lang }: { r: Relic; lang: Lang }) {
                   ))}
                 </span>
               </span>
-              <span className="tabular-nums">{s.display}</span>
+              <span className={`tabular-nums ${useful ? "text-gold" : ""}`}>{s.display}</span>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
     </div>

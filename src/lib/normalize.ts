@@ -1,5 +1,7 @@
 import type { EndgameRecord } from "./endgame";
 import { getDict, tr, type Lang } from "./i18n";
+import type { RecoMap } from "./reco";
+import { scoreCharacter, speedInfo, type CharScore } from "./score";
 import type { PartyFile } from "./parties";
 import type { Roster } from "./roster";
 import { buildStatRows, formatAdd, formatStat, maxLevel } from "./stats";
@@ -67,6 +69,15 @@ export interface NormCharacter {
   stats: NormStat[];
   relic_sets: { name: string; pieces: number; effect: string }[];
   relics: NormRelic[];
+  review?: {
+    relic_score: number; // 0~100
+    grade: string;
+    effective_rolls: number;
+    useful_stats: string[]; // 유효로 친 스탯 이름
+    main_off: number; // 메인옵이 어긋난 부위 수
+    speed_tier?: number; // 도달한 속도 구간
+    speed_to_next?: number; // 다음 구간까지 필요한 속도
+  };
 }
 
 export interface NormShowcase {
@@ -116,8 +127,9 @@ function skillLevel(c: Character, anchor: string): number {
   return c.skill_trees.find((t) => t.anchor === anchor)?.level ?? 0;
 }
 
-export function normalizeCharacter(c: Character, lang: Lang = "ko"): NormCharacter {
-  const stats = buildStatRows(c, lang).map((r) => ({
+export function normalizeCharacter(c: Character, lang: Lang = "ko", score?: CharScore): NormCharacter {
+  const statRows = buildStatRows(c, lang);
+  const stats = statRows.map((r) => ({
     field: r.field,
     name: r.name,
     base: r.base,
@@ -186,6 +198,25 @@ export function normalizeCharacter(c: Character, lang: Lang = "ko"): NormCharact
     stats,
     relic_sets,
     relics,
+    ...(score && c.relics.length > 0
+      ? {
+          review: (() => {
+            const spd = statRows.find((r) => r.field === "spd")?.total ?? 0;
+            const sp = speedInfo(spd);
+            const dict = getDict(lang) as unknown as Record<string, string>;
+            const nameOf = (f: string) => statRows.find((r) => r.field === f)?.name ?? dict[`f_${f}`] ?? f;
+            return {
+              relic_score: Math.round(score.total),
+              grade: score.grade,
+              effective_rolls: Number(score.rolls.toFixed(1)),
+              useful_stats: score.useful.map(nameOf),
+              main_off: score.mainBad,
+              ...(sp.reached !== null ? { speed_tier: sp.reached } : {}),
+              ...(sp.gap !== null ? { speed_to_next: sp.gap } : {}),
+            };
+          })(),
+        }
+      : {}),
   };
 }
 
@@ -215,6 +246,7 @@ export function normalizeRoster(
   parties?: PartyFile | null,
   lang: Lang = "ko",
   endgame: EndgameRecord[] = [],
+  reco: RecoMap = {},
 ): NormShowcase {
   const byId = new Map(r.characters.map((c) => [c.id, c]));
   const nameOf = (id: string) => byId.get(id)?.name ?? r.index.characters[id]?.name ?? `#${id}`;
@@ -242,7 +274,7 @@ export function normalizeRoster(
       members: p.members.map((id) => ({ id, name: nameOf(id) })),
     })),
     endgame: normalizeEndgame(endgame, lang),
-    characters: r.characters.map((c) => normalizeCharacter(c, lang)),
+    characters: r.characters.map((c) => normalizeCharacter(c, lang, scoreCharacter(c, reco[c.id]))),
   };
 }
 
@@ -291,6 +323,15 @@ export function characterToMarkdown(n: NormCharacter, lang: Lang = "ko"): string
         sb: n.traces.stat_nodes_total,
       }),
   );
+  if (n.review) {
+    const bits = [
+      `${t("sc_relic_score")} ${n.review.relic_score}/100 (${n.review.grade})`,
+      t("sc_rolls", { n: n.review.effective_rolls }),
+      n.review.main_off > 0 ? t("sc_main_bad", { n: n.review.main_off }) : t("sc_main_good"),
+      `${t("sc_useful")}: ${n.review.useful_stats.join(", ")}`,
+    ];
+    lines.push(`- ${t("sc_title")}: ${bits.join(" · ")}`);
+  }
   lines.push("");
   lines.push("### " + t("md_stats_head"));
   lines.push(t("md_stats_cols"));

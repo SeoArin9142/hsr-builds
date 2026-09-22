@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { getDict, LANGS, tr, type Lang } from "./i18n";
 import { getKV, kvBackend, type KV } from "./kvstore";
+import { saveReco } from "./reco";
 import type { GameIndex } from "./starrailres";
 import type {
   Character,
@@ -124,7 +125,11 @@ interface HoyoAvatar {
 interface HoyoResponse {
   retcode: number;
   message: string;
-  data?: { avatar_list: HoyoAvatar[] };
+  data?: {
+    avatar_list: HoyoAvatar[];
+    // 캐릭터별 추천 부옵션 (게임 공통 정보)
+    recommend_property?: Record<string, { recommend_relic_properties?: number[] }>;
+  };
 }
 
 /* ---------- 매핑표 ---------- */
@@ -545,6 +550,16 @@ async function fetchRoster(
   }
   const body = (await res.json()) as HoyoResponse;
   if (body.retcode !== 0 || !body.data) return mapError(body.retcode, body.message, !!ck.owned, lang);
+  // 추천 부옵션표는 계정과 무관하므로 받아 둔다 (유물 점수에 쓴다)
+  const reco = body.data.recommend_property;
+  if (reco) {
+    const map: Record<string, number[]> = {};
+    for (const [id, v] of Object.entries(reco)) {
+      const list = v?.recommend_relic_properties;
+      if (Array.isArray(list) && list.length > 0) map[id] = list;
+    }
+    void saveReco(map);
+  }
   // 한 캐릭터의 데이터가 이상해도 나머지는 보여 준다
   const characters: Character[] = [];
   for (const a of body.data.avatar_list ?? []) {

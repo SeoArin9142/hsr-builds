@@ -4,6 +4,7 @@ import { normalizeRoster, showcaseToMarkdown } from "@/lib/normalize";
 import { getParties } from "@/lib/parties";
 import { getRoster } from "@/lib/roster";
 import { getEndgame } from "@/lib/endgame";
+import { getReco } from "@/lib/reco";
 import { getViewerCookie } from "@/lib/viewer";
 
 /**
@@ -31,7 +32,7 @@ export async function GET(
   }
   const endgame = await getEndgame(uid, result.roster.index, { viewer, lang });
   const md = showcaseToMarkdown(
-    normalizeRoster(result.roster, parties, lang, endgame.records),
+    normalizeRoster(result.roster, parties, lang, endgame.records, await getReco()),
     { only: q.get("c") ?? undefined, showcaseOnly: q.get("showcase") === "1" },
     lang,
   );

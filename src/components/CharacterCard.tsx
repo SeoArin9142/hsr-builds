@@ -62,6 +62,20 @@ export default function CharacterCard({ uid, c }: { uid: string; c: CardModel })
         <div className="truncate text-[11px] text-muted">
           {c.sets.length > 0 ? c.sets.join(" · ") : d.card_no_relics}
         </div>
+        <div className="flex items-center justify-between gap-2 border-t border-card-border/60 pt-1 text-[11px] text-muted">
+          <span className="tabular-nums">{c.key.crit}</span>
+          <span className="tabular-nums">SPD {c.key.spd}</span>
+          {c.score !== null && (
+            <span
+              className={`font-semibold ${
+                c.grade === "S" ? "text-gold" : c.grade === "A" ? "text-emerald-300" : c.grade === "B" ? "text-sky-300" : "text-muted"
+              }`}
+              title={d.sc_relic_score}
+            >
+              {c.score}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );

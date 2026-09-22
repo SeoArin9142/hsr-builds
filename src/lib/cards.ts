@@ -1,4 +1,6 @@
-import { maxLevel } from "./stats";
+import type { Lang } from "./i18n";
+import { gradeOf, scoreCharacter } from "./score";
+import { buildStatRows, maxLevel } from "./stats";
 import type { Character } from "./types";
 
 /** 캐릭터 목록 카드에 필요한 최소 정보 (클라이언트 필터 컴포넌트로 넘기므로 가볍게) */
@@ -16,6 +18,9 @@ export interface CardModel {
   lightCone: { name: string; rank: number } | null;
   sets: string[]; // "세트명 4" 형식
   showcased: boolean;
+  key: { crit: string; spd: string }; // 목록에서 바로 보는 핵심 수치
+  score: number | null; // 유물 점수 0~100 (유물이 없으면 null)
+  grade: string;
 }
 
 /** 같은 세트의 2셋·4셋 중 큰 것만 남긴다 */
@@ -25,7 +30,11 @@ export function setSummary(c: Character): string[] {
   return [...max].map(([name, num]) => `${name} ${num}`);
 }
 
-export function toCardModel(c: Character): CardModel {
+export function toCardModel(c: Character, lang: Lang = "ko", reco?: number[]): CardModel {
+  const rows = buildStatRows(c, lang);
+  const pick = (f: string) => rows.find((r) => r.field === f)?.total ?? 0;
+  const pct = (v: number) => `${(Math.floor(v * 1000 + 1e-6) / 10).toFixed(1)}%`;
+  const sc = scoreCharacter(c, reco);
   return {
     id: c.id,
     name: c.name,
@@ -40,5 +49,11 @@ export function toCardModel(c: Character): CardModel {
     lightCone: c.light_cone ? { name: c.light_cone.name, rank: c.light_cone.rank } : null,
     sets: setSummary(c),
     showcased: c.source !== "hoyolab",
+    key: {
+      crit: `${pct(pick("crit_rate"))} / ${pct(pick("crit_dmg"))}`,
+      spd: String(Math.floor(pick("spd") + 1e-6)),
+    },
+    score: c.relics.length > 0 ? Math.round(sc.total) : null,
+    grade: c.relics.length > 0 ? gradeOf(sc.total) : "",
   };
 }
