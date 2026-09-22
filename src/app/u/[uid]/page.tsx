@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import AskAi from "@/components/AskAi";
 import EndgameSection from "@/components/EndgameSection";
 import HistorySection from "@/components/HistorySection";
 import ErrorBox from "@/components/ErrorBox";
@@ -136,7 +137,8 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             <p className="mt-2 text-sm text-foreground/75">{player.signature}</p>
           )}
         </div>
-        <div className="flex flex-col gap-1 text-xs text-muted">
+        <div className="flex flex-col items-start gap-2 text-xs text-muted">
+          <AskAi uid={uid} lang={lang} className="flex-col items-start sm:flex-row sm:items-center" />
           <a href={`/api/u/${uid}/md`} className="hover:text-foreground" target="_blank">
             {d.profile_md}
           </a>

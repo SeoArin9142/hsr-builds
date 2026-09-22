@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ElementBadge, PathBadge, RarityStars, SectionTitle } from "@/components/Badges";
+import AskAi from "@/components/AskAi";
 import BuildReview from "@/components/BuildReview";
 import CopyButton from "@/components/CopyButton";
 import ErrorBox from "@/components/ErrorBox";
@@ -114,7 +115,8 @@ export default async function CharacterPage({ params }: Props) {
               </div>
             )}
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <AskAi uid={uid} lang={lang} characterId={c.id} />
               <CopyButton text={markdown} />
               <Link
                 href={`/u/${uid}/compare?c=${c.id}`}
