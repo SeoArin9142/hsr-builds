@@ -28,6 +28,11 @@ function authorized(req: Request): "admin" | "cron" | null {
   return req.headers.get("authorization") === `Bearer ${secret}` ? "cron" : null;
 }
 
+/** 주소를 <> 로 감싸면 디스코드·슬랙이 링크 미리보기 카드를 펼치지 않는다 (알림이 짧아진다) */
+function adminLink(): string {
+  return `<${SITE_URL}/admin>`;
+}
+
 async function monthUsage(): Promise<{ used: number; budget: number; ratio: number }> {
   const key = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7).replace("-", "");
   const used = redisConfigured() ? Number((await redisGet(`stats:req:${key}`).catch(() => null)) ?? 0) : 0;
@@ -79,14 +84,14 @@ export async function GET(req: Request) {
 
   let notified = false;
   if (notes.length > 0) {
-    notified = await alert("health", `⚠️ HSR Builds 점검\n${notes.join("\n")}\n${SITE_URL}/admin`);
+    notified = await alert("health", `⚠️ HSR Builds 점검\n${notes.join("\n")}\n${adminLink()}`);
   } else if (test) {
     // 시험은 "하루에 한 번" 제한에 걸리지 않게 매번 다른 key 로 보낸다
     notified = await alert(
       `test:${Date.now()}`,
       `✅ HSR Builds 점검 알림 시험 — 지금은 문제가 없습니다.\n` +
         `사이트 쿠키 ${checked.length}개 정상 · 이번 달 요청 ${month.used}/${month.budget}\n` +
-        `${SITE_URL}/admin`,
+        adminLink(),
       60,
     );
   }
