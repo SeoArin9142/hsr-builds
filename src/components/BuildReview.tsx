@@ -4,7 +4,7 @@ import { critRatio, GRADE_BANDS, nextGrade, speedInfo, type CharScore } from "@/
 import { buildStatRows, formatStat } from "@/lib/stats";
 import type { Character } from "@/lib/types";
 
-/** 캐릭터 상세의 "빌드 평가" — 유물 점수·속도 구간·치확 비율 */
+/** 캐릭터 상세의 "빌드 평가" — 실제 수치가 목표에 닿았는지 + 유물 효율·속도 구간·치확 비율 */
 export default function BuildReview({
   c,
   score,
@@ -22,15 +22,10 @@ export default function BuildReview({
   const cd = by("crit_dmg")?.total ?? 0;
   const sp = speedInfo(spd);
   const crit = critRatio(cr, cd);
+  const main = score.targets.length > 0 ? score.build : score.total;
   const gradeColor =
     score.grade === "S" ? "text-gold" : score.grade === "A" ? "text-emerald-300" : score.grade === "B" ? "text-sky-300" : "text-muted";
-  const next = nextGrade(score.total);
-  const dict = d as unknown as Record<string, string>;
-  const useful = score.useful.map((f) => ({
-    field: f,
-    name: by(f)?.name ?? dict[`f_${f}`] ?? f,
-    icon: by(f)?.icon ?? "",
-  }));
+  const next = nextGrade(main);
 
   return (
     <div className="rounded-lg border border-card-border bg-background/40 p-3">
@@ -38,13 +33,10 @@ export default function BuildReview({
         <span className="text-sm font-semibold">{d.sc_title}</span>
         <span className={`text-lg font-bold ${gradeColor}`}>{fmt(d.sc_grade, { grade: score.grade })}</span>
         <span className="text-sm text-muted">
-          {d.sc_relic_score} <b className="text-foreground">{Math.round(score.total)}</b>
+          {d.sc_build_score} <b className="text-foreground">{Math.round(main)}</b>
           <span className="text-muted">/100</span>
         </span>
-        <span className="text-xs text-muted">{fmt(d.sc_rolls, { n: score.rolls.toFixed(1) })}</span>
-        {next && (
-          <span className="text-xs text-muted">{fmt(d.sc_to_next, { grade: next.grade, n: next.need })}</span>
-        )}
+        {next && <span className="text-xs text-muted">{fmt(d.sc_to_next, { grade: next.grade, n: next.need })}</span>}
       </div>
 
       {/* 등급 기준을 같이 보여 준다 — 지금 등급은 강조 */}
@@ -62,6 +54,39 @@ export default function BuildReview({
         ))}
       </div>
 
+      {/* 실제 수치 — 목표 대비 막대 */}
+      {score.targets.length > 0 && (
+        <div className="mt-2.5">
+          <div className="mb-1 text-xs text-muted">{d.sc_targets}</div>
+          <ul className="space-y-1">
+            {score.targets.map((t) => {
+              const row = by(t.field);
+              const done = t.ratio >= 1;
+              return (
+                <li key={t.field} className="flex items-center gap-2 text-xs">
+                  <span className="flex w-28 shrink-0 items-center gap-1 text-muted">
+                    {row?.icon && <GameImage path={row.icon} alt="" width={13} height={13} className="opacity-80" />}
+                    <span className="truncate">{t.name}</span>
+                  </span>
+                  <span className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-card">
+                    <span
+                      className={`block h-full rounded-full ${done ? "bg-emerald-400" : "bg-accent"}`}
+                      style={{ width: `${Math.max(3, t.ratio * 100)}%` }}
+                    />
+                  </span>
+                  <span className={`tabular-nums ${done ? "text-emerald-300" : "text-foreground"}`}>
+                    {formatStat(t.value, t.percent)}
+                  </span>
+                  <span className="tabular-nums text-muted/80">
+                    {fmt(d.sc_target_of, { n: formatStat(t.good, t.percent) })}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       <dl className="mt-2 space-y-1 text-xs">
         <div className="flex flex-wrap items-center gap-x-2">
           <dt className="text-muted">{d.sc_speed}</dt>
@@ -78,8 +103,8 @@ export default function BuildReview({
           </dd>
         </div>
 
-        {/* 치명타가 이 캐릭터에 의미 있을 때만 (추천 부옵에 들어 있을 때) */}
-        {score.useful.includes("crit_rate") && (
+        {/* 치명타가 이 캐릭터에 의미 있을 때만 */}
+        {score.targets.some((t) => t.field === "crit_rate") && (
           <div className="flex flex-wrap items-center gap-x-2">
             <dt className="text-muted">{d.sc_crit}</dt>
             <dd className="tabular-nums">
@@ -87,9 +112,7 @@ export default function BuildReview({
                 {formatStat(cr, true)} : {formatStat(cd, true)}
               </b>
               {crit.ratio !== null && <span className="ml-1 text-muted">(1:{crit.ratio.toFixed(1)})</span>}
-              <span
-                className={`ml-2 ${crit.hint === "ok" ? "text-emerald-300" : "text-amber-300"}`}
-              >
+              <span className={`ml-2 ${crit.hint === "ok" ? "text-emerald-300" : "text-amber-300"}`}>
                 {crit.hint === "ok" ? d.sc_crit_ok : crit.hint === "low" ? d.sc_crit_low : d.sc_crit_high}
               </span>
             </dd>
@@ -97,14 +120,11 @@ export default function BuildReview({
         )}
 
         <div className="flex flex-wrap items-center gap-x-2">
-          <dt className="text-muted">{d.sc_useful}</dt>
-          <dd className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {useful.map((r) => (
-              <span key={r.field} className="inline-flex items-center gap-1">
-                {r.icon && <GameImage path={r.icon} alt="" width={13} height={13} className="opacity-80" />}
-                {r.name}
-              </span>
-            ))}
+          <dt className="text-muted">{d.sc_relic_score}</dt>
+          <dd className="tabular-nums">
+            <b>{Math.round(score.total)}</b>
+            <span className="text-muted">/100</span>
+            <span className="ml-2 text-muted">{fmt(d.sc_rolls, { n: score.rolls.toFixed(1) })}</span>
           </dd>
         </div>
 

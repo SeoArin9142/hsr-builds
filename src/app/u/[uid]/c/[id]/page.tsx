@@ -17,7 +17,7 @@ import { getReco } from "@/lib/reco";
 import { getRoster } from "@/lib/roster";
 import { scoreCharacter } from "@/lib/score";
 import { charName, getGameIndex } from "@/lib/starrailres";
-import { levelText } from "@/lib/stats";
+import { buildStatRows, levelText } from "@/lib/stats";
 import { getViewerCookie } from "@/lib/viewer";
 
 type Props = { params: Promise<{ uid: string; id: string }> };
@@ -58,7 +58,7 @@ export default async function CharacterPage({ params }: Props) {
   }
 
   const reco = await getReco();
-  const score = scoreCharacter(c, reco[c.id]);
+  const score = scoreCharacter(c, reco[c.id], buildStatRows(c, lang));
   const markdown = characterToMarkdown(normalizeCharacter(c, lang, score), lang);
   const fromHoyolab = c.source === "hoyolab";
 

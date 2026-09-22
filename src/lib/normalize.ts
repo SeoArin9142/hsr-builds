@@ -70,7 +70,9 @@ export interface NormCharacter {
   relic_sets: { name: string; pieces: number; effect: string }[];
   relics: NormRelic[];
   review?: {
-    relic_score: number; // 0~100
+    build_score: number; // 실제 수치가 목표에 닿은 정도 0~100 (등급 기준)
+    targets: { name: string; value: string; target: string }[];
+    relic_score: number; // 유물 부옵 효율 0~100
     grade: string;
     effective_rolls: number;
     useful_stats: string[]; // 유효로 친 스탯 이름
@@ -205,7 +207,14 @@ export function normalizeCharacter(c: Character, lang: Lang = "ko", score?: Char
             const sp = speedInfo(spd);
             const dict = getDict(lang) as unknown as Record<string, string>;
             const nameOf = (f: string) => statRows.find((r) => r.field === f)?.name ?? dict[`f_${f}`] ?? f;
+            const fmtVal = (v: number, p: boolean) => formatStat(v, p);
             return {
+              build_score: Math.round(score.build),
+              targets: score.targets.map((t) => ({
+                name: t.name,
+                value: fmtVal(t.value, t.percent),
+                target: fmtVal(t.good, t.percent),
+              })),
               relic_score: Math.round(score.total),
               grade: score.grade,
               effective_rolls: Number(score.rolls.toFixed(1)),
@@ -274,7 +283,9 @@ export function normalizeRoster(
       members: p.members.map((id) => ({ id, name: nameOf(id) })),
     })),
     endgame: normalizeEndgame(endgame, lang),
-    characters: r.characters.map((c) => normalizeCharacter(c, lang, scoreCharacter(c, reco[c.id]))),
+    characters: r.characters.map((c) =>
+      normalizeCharacter(c, lang, scoreCharacter(c, reco[c.id], buildStatRows(c, lang))),
+    ),
   };
 }
 
@@ -325,7 +336,9 @@ export function characterToMarkdown(n: NormCharacter, lang: Lang = "ko"): string
   );
   if (n.review) {
     const bits = [
-      `${t("sc_relic_score")} ${n.review.relic_score}/100 (${n.review.grade})`,
+      `${t("sc_build_score")} ${n.review.build_score}/100 (${n.review.grade})`,
+      n.review.targets.map((x) => `${x.name} ${x.value}/${x.target}`).join(", "),
+      `${t("sc_relic_score")} ${n.review.relic_score}/100`,
       t("sc_rolls", { n: n.review.effective_rolls }),
       n.review.main_off > 0 ? t("sc_main_bad", { n: n.review.main_off }) : t("sc_main_good"),
       `${t("sc_useful")}: ${n.review.useful_stats.join(", ")}`,

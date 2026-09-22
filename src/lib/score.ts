@@ -1,3 +1,4 @@
+import type { StatRow } from "./stats";
 import type { Character, Relic } from "./types";
 
 /**
@@ -58,6 +59,33 @@ const PATH_DEFAULT: Record<string, string[]> = {
   Priest: ["hp", "spd", "effect_res", "heal_rate"], // 풍요
 };
 
+/**
+ * 실제 수치 목표. "이 스탯이 이 정도면 잘 맞춘 빌드" 라는 기준값이다.
+ * weight 0.5 인 것(효과 저항·치유량)은 있으면 좋지만 없다고 빌드가 망하지는 않는 스탯.
+ */
+export const STAT_TARGET: Record<string, { good: number; weight: number }> = {
+  crit_rate: { good: 0.7, weight: 1 },
+  crit_dmg: { good: 1.6, weight: 1 },
+  atk: { good: 3000, weight: 1 },
+  hp: { good: 5000, weight: 1 },
+  def: { good: 3500, weight: 1 },
+  spd: { good: 140, weight: 1 },
+  break_dmg: { good: 2.5, weight: 1 },
+  effect_hit: { good: 0.67, weight: 1 },
+  effect_res: { good: 0.2, weight: 0.5 },
+  heal_rate: { good: 0.12, weight: 0.5 },
+};
+
+export interface StatTarget {
+  field: string;
+  name: string;
+  value: number;
+  percent: boolean;
+  good: number;
+  ratio: number; // 0~1
+  weight: number;
+}
+
 export interface RelicScore {
   rolls: number; // 유효 롤 (가중 합)
   score: number; // 0~100
@@ -66,7 +94,9 @@ export interface RelicScore {
 }
 
 export interface CharScore {
-  total: number; // 유물 평균 점수 0~100
+  build: number; // 실제 수치가 목표에 얼마나 닿았나 0~100 (종합 등급의 기준)
+  targets: StatTarget[]; // 그 근거
+  total: number; // 유물 부옵 효율 0~100
   grade: string; // S / A / B / C / D
   rolls: number; // 유효 롤 합계
   relics: Map<string, RelicScore>; // relic.id+type → 점수
@@ -78,6 +108,19 @@ export interface CharScore {
  * 이 캐릭터에서 값어치 있는 부옵션 (field → 0~1 가중치).
  * HoYoLAB 추천 부옵션은 3~4개뿐이라 그것만 세면 너무 박해서, 운명의 길 기본값을 절반 가중치로 더한다.
  */
+/** 이 캐릭터의 핵심 스탯 (HoYoLAB 추천, 없으면 운명의 길 기본값) */
+export function primaryStats(c: Character, reco?: number[]): string[] {
+  const list = (reco ?? []).map((id) => RECO_PROPERTY[id]).filter(Boolean);
+  if (list.length > 0) {
+    const out = [...new Set(list.map((x) => x.field))];
+    // 치확·치피는 한쪽만 추천돼도 다른 쪽이 필요하다
+    if (out.includes("crit_rate") && !out.includes("crit_dmg")) out.push("crit_dmg");
+    if (out.includes("crit_dmg") && !out.includes("crit_rate")) out.push("crit_rate");
+    return out;
+  }
+  return [...(PATH_DEFAULT[c.path.id] ?? PATH_DEFAULT.Warrior)];
+}
+
 export function usefulStats(c: Character, reco?: number[]): Map<string, number> {
   const w = new Map<string, number>();
   const list = (reco ?? []).map((id) => RECO_PROPERTY[id]).filter(Boolean);
@@ -128,14 +171,15 @@ function judgeMain(r: Relic, c: Character, w: Map<string, number>): RelicScore["
 }
 
 /**
- * 등급 구간. 실제 계정(유물 낀 캐릭터 65명)의 분포에서 상위 10%/25%/50%/75% 근처로 잡았다.
+ * 등급은 "실제 수치가 목표에 얼마나 닿았나"(build)로 매긴다 — 메인옵·광추·행적이 모두 반영된 값이다.
+ * 유물 부옵 효율(total)은 참고용으로 따로 보여 준다.
  * 게임 안의 평가와는 계산 방식이 달라 등급이 다를 수 있어, 화면에 기준을 같이 보여 준다.
  */
 export const GRADE_BANDS: { grade: string; min: number }[] = [
-  { grade: "S", min: 80 },
-  { grade: "A", min: 68 },
-  { grade: "B", min: 54 },
-  { grade: "C", min: 38 },
+  { grade: "S", min: 90 },
+  { grade: "A", min: 80 },
+  { grade: "B", min: 68 },
+  { grade: "C", min: 52 },
   { grade: "D", min: 0 },
 ];
 
@@ -149,9 +193,29 @@ export function nextGrade(score: number): { grade: string; need: number } | null
   return better ? { grade: better.grade, need: Math.ceil(better.min - score) } : null;
 }
 
-/** 캐릭터 한 명의 유물 점수 */
-export function scoreCharacter(c: Character, reco?: number[]): CharScore {
+/** 캐릭터 한 명의 빌드 평가 — 실제 수치(주) + 유물 부옵 효율(부) */
+export function scoreCharacter(c: Character, reco?: number[], rows?: StatRow[]): CharScore {
   const w = usefulStats(c, reco);
+  const primary = primaryStats(c, reco);
+
+  // 실제 최종 수치가 목표에 얼마나 닿았는지 — 메인옵·광추·행적까지 전부 반영된 값이다
+  const targets: StatTarget[] = [];
+  for (const f of primary) {
+    const t = STAT_TARGET[f];
+    const row = rows?.find((r) => r.field === f);
+    if (!t || !row) continue;
+    targets.push({
+      field: f,
+      name: row.name,
+      value: row.total,
+      percent: row.percent,
+      good: t.good,
+      ratio: Math.min(1, row.total / t.good),
+      weight: t.weight,
+    });
+  }
+  const wsum = targets.reduce((a, t) => a + t.weight, 0);
+  const build = wsum > 0 ? (targets.reduce((a, t) => a + t.ratio * t.weight, 0) / wsum) * 100 : 0;
   const relics = new Map<string, RelicScore>();
   let rollSum = 0;
   let scored = 0;
@@ -177,8 +241,10 @@ export function scoreCharacter(c: Character, reco?: number[]): CharScore {
 
   const total = scored > 0 ? Math.min(100, (rollSum / (scored * REFERENCE_ROLLS)) * 100) : 0;
   return {
+    build,
+    targets,
     total,
-    grade: gradeOf(total),
+    grade: gradeOf(targets.length > 0 ? build : total),
     rolls: rollSum,
     relics,
     useful: [...w.keys()].filter((k) => !k.endsWith(":flat")),

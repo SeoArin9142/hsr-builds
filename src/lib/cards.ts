@@ -34,7 +34,7 @@ export function toCardModel(c: Character, lang: Lang = "ko", reco?: number[]): C
   const rows = buildStatRows(c, lang);
   const pick = (f: string) => rows.find((r) => r.field === f)?.total ?? 0;
   const pct = (v: number) => `${(Math.floor(v * 1000 + 1e-6) / 10).toFixed(1)}%`;
-  const sc = scoreCharacter(c, reco);
+  const sc = scoreCharacter(c, reco, rows);
   return {
     id: c.id,
     name: c.name,
@@ -53,7 +53,7 @@ export function toCardModel(c: Character, lang: Lang = "ko", reco?: number[]): C
       crit: `${pct(pick("crit_rate"))} / ${pct(pick("crit_dmg"))}`,
       spd: String(Math.floor(pick("spd") + 1e-6)),
     },
-    score: c.relics.length > 0 ? Math.round(sc.total) : null,
+    score: c.relics.length > 0 ? Math.round(sc.targets.length > 0 ? sc.build : sc.total) : null,
     grade: c.relics.length > 0 ? gradeOf(sc.total) : "",
   };
 }
