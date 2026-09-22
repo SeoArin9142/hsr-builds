@@ -1,69 +1,49 @@
-import Image from "next/image";
+import Link from "next/link";
+import UidSearch from "@/components/UidSearch";
+import { OWNER_UID } from "@/lib/site";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="mx-auto max-w-2xl py-12">
+      <h1 className="text-3xl font-bold tracking-tight">
+        UID 하나로 보는 <span className="text-gold">스타레일 빌드</span>
+      </h1>
+      <p className="mt-3 text-muted">
+        보유 캐릭터의 최종 스탯·광추·유물·행적을 한 화면에서 확인합니다. 고수 유저나 AI 에게
+        UID 만 주면 같은 화면을 보고 세팅을 평가할 수 있습니다. 로그인은 필요 없습니다.
+      </p>
+
+      <div className="mt-8">
+        <UidSearch size="lg" />
+      </div>
+
+      <div className="mt-6 text-sm text-muted">
+        예시:{" "}
+        <Link href={`/u/${OWNER_UID}`} className="text-accent underline-offset-2 hover:underline">
+          {OWNER_UID}
+        </Link>
+      </div>
+
+      <section className="mt-12 rounded-xl border border-card-border bg-card p-5 text-sm">
+        <h2 className="font-bold">어디까지 보이나</h2>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-foreground/85">
+          <li>
+            <b>보유 캐릭터 전부</b> — HoYoLAB 에서 <b>전적 공개</b>가 켜져 있는 계정 (기본값이 공개)
+          </li>
+          <li>
+            전적이 비공개면 인게임 <b>캐릭터 전시</b>에 올린 최대 8명만 — 프로필 → 캐릭터 전시에서{" "}
+            <b>상세 정보 표시</b>도 켜야 스탯·유물이 나온다
+          </li>
+          <li>반영까지 몇 분 걸릴 수 있다 (게임 서버·API 캐시)</li>
+          <li>파티 편성은 게임이 외부에 주지 않아서, 계정 주인이 [파티 편집] 으로 직접 만든다 (최대 12개)</li>
+        </ul>
+        <h2 className="mt-5 font-bold">AI 에게 넘길 때</h2>
+        <p className="mt-2 text-foreground/85">
+          <code className="rounded bg-background/60 px-1">/api/u/UID/md</code> 주소를 주면 캐릭터
+          전체가 마크다운 표로 나옵니다. 캐릭터 상세 페이지의 &quot;AI 평가용 텍스트 복사&quot;
+          버튼으로 한 명만 복사할 수도 있습니다.
+        </p>
+      </section>
     </div>
   );
 }
