@@ -8,6 +8,7 @@ type Status = {
   cookies: { id: string; ltuidMasked: string; today: number; exhausted: boolean; dead: boolean }[];
   feedback: { id: string; at: number; message: string; contact?: string; page?: string }[];
   month: { key: string; used: number; budget: number };
+  linked: { total: number; viaLink: number };
 };
 
 /** 사이트 주인용: 쿠키 풀 상태 보기 (EDIT_ADMIN_KEY 필요) */
@@ -75,6 +76,10 @@ export default function AdminPage() {
             <a href="/api/admin/quota-preview" target="_blank" className="text-accent hover:underline">
               안내 화면 미리보기 ↗
             </a>
+          </p>
+          <p className="mt-1 text-muted">
+            등록 사용자 <b className="text-foreground">{status.linked?.total ?? 0}명</b> (전체가 보이는 UID) · 그중
+            직접 연결 {status.linked?.viaLink ?? 0}명 — 숫자만 세고 UID 목록은 저장하지 않습니다.
           </p>
           <table className="mt-3 w-full">
             <thead className="text-xs text-muted">

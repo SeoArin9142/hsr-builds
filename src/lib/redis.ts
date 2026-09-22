@@ -56,3 +56,15 @@ export async function redisSCard(key: string): Promise<number> {
 export async function redisSMembers(key: string): Promise<string[]> {
   return (await redisCmd<string[]>(["SMEMBERS", key])) ?? [];
 }
+
+/**
+ * HyperLogLog — "서로 다른 것이 몇 개인지"만 센다. 넣은 값 자체는 보관되지 않아 나중에 꺼낼 수 없다.
+ * 사용자 수처럼 숫자만 필요하고 목록은 갖고 싶지 않을 때 쓴다.
+ */
+export async function redisPFAdd(key: string, member: string): Promise<void> {
+  await redisCmd(["PFADD", key, member]);
+}
+
+export async function redisPFCount(key: string): Promise<number> {
+  return (await redisCmd<number>(["PFCOUNT", key])) ?? 0;
+}

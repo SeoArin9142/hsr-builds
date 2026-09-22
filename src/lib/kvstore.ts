@@ -2,6 +2,8 @@ import {
   redisConfigured,
   redisDel,
   redisGet,
+  redisPFAdd,
+  redisPFCount,
   redisSAdd,
   redisSCard,
   redisSet,
@@ -19,6 +21,9 @@ export interface KV {
   sadd(key: string, member: string, ttlSeconds: number): Promise<void>;
   scard(key: string): Promise<number>;
   smembers(key: string): Promise<string[]>;
+  /** 서로 다른 값의 개수만 센다 (넣은 값은 보관되지 않는다) */
+  pfadd(key: string, member: string): Promise<void>;
+  pfcount(key: string): Promise<number>;
 }
 
 type Entry = { value: string; exp: number };
@@ -60,6 +65,15 @@ const memoryKV: KV = {
     const e = memSets.get(key);
     return e && e.exp >= Date.now() ? [...e.members] : [];
   },
+  // 메모리에서는 그냥 집합 크기로 센다 (로컬 개발용)
+  async pfadd(key, member) {
+    const e = memSets.get(key);
+    if (!e || e.exp < Date.now()) memSets.set(key, { members: new Set([member]), exp: Infinity });
+    else e.members.add(member);
+  },
+  async pfcount(key) {
+    return memSets.get(key)?.members.size ?? 0;
+  },
 };
 
 const redisKV: KV = {
@@ -69,6 +83,8 @@ const redisKV: KV = {
   sadd: redisSAdd,
   scard: redisSCard,
   smembers: redisSMembers,
+  pfadd: redisPFAdd,
+  pfcount: redisPFCount,
 };
 
 export function getKV(): KV {

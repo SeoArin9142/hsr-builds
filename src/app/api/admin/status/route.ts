@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { checkAdminKey } from "@/lib/claim";
 import { listFeedback } from "@/lib/feedback";
 import { poolStatus } from "@/lib/hoyolab";
+import { getKV } from "@/lib/kvstore";
+import { linkedCounts } from "@/lib/usage";
 import { redisConfigured, redisGet } from "@/lib/redis";
 
 /** 이번 달(KST) 요청 수와 자체 예산 */
@@ -19,6 +21,11 @@ export async function GET(req: Request) {
   if (!checkAdminKey(req.headers.get("x-admin-key") ?? undefined)) {
     return NextResponse.json({ error: "관리자 키가 틀립니다." }, { status: 403 });
   }
-  const [pool, feedback, month] = await Promise.all([poolStatus(), listFeedback(50), monthUsage()]);
-  return NextResponse.json({ ...pool, feedback, month });
+  const [pool, feedback, month, linked] = await Promise.all([
+    poolStatus(),
+    listFeedback(50),
+    monthUsage(),
+    linkedCounts(getKV()),
+  ]);
+  return NextResponse.json({ ...pool, feedback, month, linked });
 }

@@ -7,6 +7,7 @@ import { getKV } from "@/lib/kvstore";
 import { validateCookie } from "@/lib/link";
 import { redisCmd, redisConfigured, redisGet } from "@/lib/redis";
 import { SITE_URL } from "@/lib/site";
+import { linkedCounts } from "@/lib/usage";
 
 /**
  * GET /api/cron/health — 하루 한 번 (vercel.json 의 crons) 사이트 건강 검진.
@@ -102,8 +103,10 @@ export async function GET(req: Request) {
   // 하루 요약 — 어제(마지막으로 다 지난 날) 방문 수와 이번 달 사용량
   const yesterday = await visitors(kstDay(-1));
   const today = await visitors(kstDay());
+  const linked = await linkedCounts(kv);
   const summary = [
     `어제(${kstLabel(-1)}) 방문 ${yesterday.uv}명 · ${yesterday.pv}회, 오늘 지금까지 ${today.uv}명`,
+    `등록 사용자 ${linked.total}명 (직접 연결 ${linked.viaLink}명)`,
     `사이트 쿠키 ${checked.length - dead.length}/${checked.length}개 정상`,
     `이번 달 요청 ${month.used.toLocaleString("ko-KR")}/${month.budget.toLocaleString("ko-KR")} (${Math.round(month.ratio * 100)}%)`,
     adminLink(),
@@ -130,6 +133,7 @@ export async function GET(req: Request) {
     dead,
     month,
     visitors: { yesterday, today },
+    linked,
     notes,
     notified,
     pool: await poolStatus(),

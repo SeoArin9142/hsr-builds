@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { getDict, LANGS, tr, type Lang } from "./i18n";
 import { getKV, kvBackend, type KV } from "./kvstore";
+import { countLinkedUser } from "./usage";
 import { fillLightCone, getGameDetail, promotionFromLevel, type GameDetail } from "./gamedata";
 import { saveReco } from "./reco";
 import type { GameIndex } from "./starrailres";
@@ -814,6 +815,8 @@ async function fetchWithCookies(
     if (r.status === "ok") {
       const at = Date.now();
       await kv.sadd(`hoyo:day:${ck.id}:${day}`, uid, 2 * 86400).catch(() => {});
+      // 실제로 전체가 보이는 UID = 등록 사용자. 숫자만 세고 목록은 남기지 않는다
+      void countLinkedUser(kv, uid, ck.id.startsWith("user:"));
       const result: HoyolabResult = { ...r, fetchedAt: at, cookieId: ck.id };
       mem.set(`${uid}:${lang}`, { at, result });
       kv.set(`hoyo:roster:${uid}:${lang}`, JSON.stringify({ at, data: pack(r.characters) }), ROSTER_TTL).catch((e) =>
