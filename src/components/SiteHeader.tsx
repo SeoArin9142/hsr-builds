@@ -6,7 +6,7 @@ export default function SiteHeader() {
   return (
     <header className="sticky top-0 z-20 border-b border-card-border/60 bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4">
-        <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex shrink-0 items-center gap-4 text-sm">
           <Link href="/" className="text-base font-bold tracking-tight text-gold">
             HSR Builds
           </Link>
@@ -17,7 +17,10 @@ export default function SiteHeader() {
             내 계정 연결
           </Link>
         </nav>
-        <UidSearch />
+        {/* 폰 너비에서는 검색칸이 찌그러져서 숨긴다 — 홈 화면의 큰 검색칸을 쓴다 */}
+        <div className="hidden sm:block">
+          <UidSearch />
+        </div>
       </div>
     </header>
   );

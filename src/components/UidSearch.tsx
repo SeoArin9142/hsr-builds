@@ -30,21 +30,21 @@ export default function UidSearch({
   const lg = size === "lg";
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-1">
+    <form onSubmit={submit} className="flex min-w-0 flex-col gap-1">
       <div className="flex gap-2">
         <input
           inputMode="numeric"
           placeholder="UID 입력 (예: 800133616)"
           value={uid}
           onChange={(e) => setUid(e.target.value)}
-          className={`rounded-md border border-card-border bg-background/60 px-3 outline-none placeholder:text-muted/70 focus:border-accent ${
-            lg ? "h-12 w-full text-base" : "h-9 w-40 text-sm sm:w-52"
+          className={`min-w-0 rounded-md border border-card-border bg-background/60 px-3 outline-none placeholder:text-muted/70 focus:border-accent ${
+            lg ? "h-12 w-full text-base" : "h-9 w-36 text-sm sm:w-52"
           }`}
           aria-label="UID"
         />
         <button
           type="submit"
-          className={`rounded-md bg-accent font-medium text-background hover:brightness-110 ${
+          className={`shrink-0 whitespace-nowrap rounded-md bg-accent font-medium text-background hover:brightness-110 ${
             lg ? "h-12 px-6 text-base" : "h-9 px-3 text-sm"
           }`}
         >
