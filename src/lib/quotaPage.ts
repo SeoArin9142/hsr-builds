@@ -37,7 +37,7 @@ export function quotaPage(req: NextRequest): NextResponse {
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0f1e;color:#e6e8f0;font-family:system-ui,-apple-system,"Noto Sans KR","Noto Sans JP",sans-serif}
 .box{max-width:560px;margin:24px;padding:32px;border:1px solid #263050;border-radius:16px;background:#141a2e}
 h1{font-size:22px;margin:0 0 12px;color:#f0c66c}p{margin:8px 0;line-height:1.6}.muted{color:#8b93b0;font-size:14px}</style></head>
-<body><div class="box"><h1>${esc(d.quota_title)}</h1><p>${esc(d.quota_body)}</p><p><b>${esc(fmt(d.quota_until, { date }))}</b></p><p class="muted">${esc(d.quota_sorry)}</p></div></body></html>`;
+<body><div class="box"><h1>${esc(d.quota_title)}</h1><p>${esc(d.quota_body).replace(/\n/g, "<br>")}</p><p><b>${esc(fmt(d.quota_until, { date }))}</b></p><p class="muted">${esc(d.quota_sorry)}</p></div></body></html>`;
   const retry = Math.max(60, Math.floor((until.getTime() - Date.now()) / 1000));
   return new NextResponse(html, {
     status: 503,
