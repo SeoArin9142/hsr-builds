@@ -5,6 +5,14 @@ import { critRatio, GRADE_BANDS, nextGrade, speedInfo, type CharScore } from "@/
 import { buildStatRows, formatStat } from "@/lib/stats";
 import type { Character } from "@/lib/types";
 
+/** 마침표(., 。) 뒤에서 문장을 끊어 한 줄씩 보여 준다 */
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.。])\s*/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
 /** 캐릭터 상세의 "빌드 평가" — 실제 수치가 목표에 닿았는지 + 유물 효율·속도 구간·치확 비율 */
 export default function BuildReview({
   c,
@@ -123,16 +131,21 @@ export default function BuildReview({
         </div>
       </dl>
 
-      <p className="mt-2 text-[11px] text-muted/80">
-        {d.sc_note}{" "}
-        {d.sc_feedback}{" "}
-        <Link
-          href={`/feedback?about=${encodeURIComponent(`${c.name}${uid ? ` (UID ${uid})` : ""}`)}`}
-          className="text-accent hover:underline"
-        >
-          {d.sc_feedback_link}
-        </Link>
-      </p>
+      {/* 안내는 문장마다 줄을 나눠 읽기 편하게 */}
+      <div className="mt-2 space-y-0.5 text-[11px] text-muted/80">
+        {splitSentences(d.sc_note).map((line, i) => (
+          <p key={i}>{line}</p>
+        ))}
+        <p>
+          {d.sc_feedback}{" "}
+          <Link
+            href={`/feedback?about=${encodeURIComponent(`${c.name}${uid ? ` (UID ${uid})` : ""}`)}`}
+            className="whitespace-nowrap text-accent hover:underline"
+          >
+            {d.sc_feedback_link}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
