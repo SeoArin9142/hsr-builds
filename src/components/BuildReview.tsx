@@ -1,6 +1,6 @@
 import GameImage from "./GameImage";
 import { fmt, getDict, type Lang } from "@/lib/i18n";
-import { critRatio, speedInfo, type CharScore } from "@/lib/score";
+import { critRatio, GRADE_BANDS, nextGrade, speedInfo, type CharScore } from "@/lib/score";
 import { buildStatRows, formatStat } from "@/lib/stats";
 import type { Character } from "@/lib/types";
 
@@ -24,6 +24,7 @@ export default function BuildReview({
   const crit = critRatio(cr, cd);
   const gradeColor =
     score.grade === "S" ? "text-gold" : score.grade === "A" ? "text-emerald-300" : score.grade === "B" ? "text-sky-300" : "text-muted";
+  const next = nextGrade(score.total);
   const dict = d as unknown as Record<string, string>;
   const useful = score.useful.map((f) => ({
     field: f,
@@ -41,6 +42,24 @@ export default function BuildReview({
           <span className="text-muted">/100</span>
         </span>
         <span className="text-xs text-muted">{fmt(d.sc_rolls, { n: score.rolls.toFixed(1) })}</span>
+        {next && (
+          <span className="text-xs text-muted">{fmt(d.sc_to_next, { grade: next.grade, n: next.need })}</span>
+        )}
+      </div>
+
+      {/* 등급 기준을 같이 보여 준다 — 지금 등급은 강조 */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
+        <span>{d.sc_scale}</span>
+        {GRADE_BANDS.filter((b) => b.min > 0).map((b) => (
+          <span
+            key={b.grade}
+            className={`rounded px-1.5 py-0.5 tabular-nums ${
+              b.grade === score.grade ? "bg-accent/20 font-semibold text-foreground" : "bg-background/50"
+            }`}
+          >
+            {b.grade} {b.min}+
+          </span>
+        ))}
       </div>
 
       <dl className="mt-2 space-y-1 text-xs">

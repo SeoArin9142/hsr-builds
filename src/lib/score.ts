@@ -22,7 +22,11 @@ const MAX_ROLL: Record<string, { flat?: number; percent?: number }> = {
   effect_res: { percent: 0.0432 },
 };
 
-const MAX_ROLLS_PER_RELIC = 9; // 부옵 4개로 시작 + 강화 5회
+/**
+ * 점수 기준. 유물 하나가 가질 수 있는 롤은 최대 9개(부옵 4개 + 강화 5회)지만 9개가 전부
+ * 쓸모 있는 유물은 사실상 없다. 그래서 "유효 6롤"을 만점으로 잡는다 — 잘 맞춘 유물의 기준.
+ */
+const REFERENCE_ROLLS = 6;
 
 /** HoYoLAB 추천 부옵션 id → 우리 field (+퍼센트 여부) */
 export const RECO_PROPERTY: Record<number, { field: string; percent: boolean }> = {
@@ -124,15 +128,25 @@ function judgeMain(r: Relic, c: Character, w: Map<string, number>): RelicScore["
 }
 
 /**
- * 등급 구간. 실제 계정(유물 낀 캐릭터 65명)의 점수 분포를 기준으로 잡았다.
- * 상위 10% ≈ 53, 25% ≈ 48, 50% ≈ 37, 75% ≈ 24.
+ * 등급 구간. 실제 계정(유물 낀 캐릭터 65명)의 분포에서 상위 10%/25%/50%/75% 근처로 잡았다.
+ * 게임 안의 평가와는 계산 방식이 달라 등급이 다를 수 있어, 화면에 기준을 같이 보여 준다.
  */
+export const GRADE_BANDS: { grade: string; min: number }[] = [
+  { grade: "S", min: 80 },
+  { grade: "A", min: 68 },
+  { grade: "B", min: 54 },
+  { grade: "C", min: 38 },
+  { grade: "D", min: 0 },
+];
+
 export function gradeOf(score: number): string {
-  if (score >= 53) return "S";
-  if (score >= 46) return "A";
-  if (score >= 36) return "B";
-  if (score >= 24) return "C";
-  return "D";
+  return GRADE_BANDS.find((b) => score >= b.min)?.grade ?? "D";
+}
+
+/** 다음 등급과 거기까지 남은 점수 */
+export function nextGrade(score: number): { grade: string; need: number } | null {
+  const better = [...GRADE_BANDS].reverse().find((b) => b.min > score);
+  return better ? { grade: better.grade, need: Math.ceil(better.min - score) } : null;
 }
 
 /** 캐릭터 한 명의 유물 점수 */
@@ -153,7 +167,7 @@ export function scoreCharacter(c: Character, reco?: number[]): CharScore {
       rolls += rv * weight;
       subs.push({ field: s.field, name: s.name, display: s.display, weight, rv });
     }
-    const score = Math.min(100, (rolls / MAX_ROLLS_PER_RELIC) * 100);
+    const score = Math.min(100, (rolls / REFERENCE_ROLLS) * 100);
     const mainVerdict = judgeMain(r, c, w);
     if (mainVerdict === "bad") mainBad += 1;
     relics.set(r.id + r.type, { rolls, score, subs, mainVerdict });
@@ -161,7 +175,7 @@ export function scoreCharacter(c: Character, reco?: number[]): CharScore {
     scored += 1;
   }
 
-  const total = scored > 0 ? (rollSum / (scored * MAX_ROLLS_PER_RELIC)) * 100 : 0;
+  const total = scored > 0 ? Math.min(100, (rollSum / (scored * REFERENCE_ROLLS)) * 100) : 0;
   return {
     total,
     grade: gradeOf(total),
