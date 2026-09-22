@@ -5,11 +5,14 @@ import CharacterCard from "./CharacterCard";
 import GameImage from "./GameImage";
 import { useLang } from "./LangProvider";
 import type { CardModel } from "@/lib/cards";
-import { fmt } from "@/lib/i18n";
+import { fmt, LANGS } from "@/lib/i18n";
+
+type SortKey = "default" | "level" | "eidolon" | "showcase" | "name";
 
 /** 캐릭터 목록 + 속성·운명의 길·희귀도·전시 필터 */
 export default function RosterGrid({ uid, cards }: { uid: string; cards: CardModel[] }) {
-  const { d } = useLang();
+  const { lang, d } = useLang();
+  const [sort, setSort] = useState<SortKey>("default");
   const [element, setElement] = useState<string | null>(null);
   const [path, setPath] = useState<string | null>(null);
   const [rarity, setRarity] = useState<number | null>(null);
@@ -19,13 +22,35 @@ export default function RosterGrid({ uid, cards }: { uid: string; cards: CardMod
   const elements = useMemo(() => uniqueBy(cards.map((c) => c.element)), [cards]);
   const paths = useMemo(() => uniqueBy(cards.map((c) => c.path)), [cards]);
 
-  const shown = cards.filter(
+  const filtered = cards.filter(
     (c) =>
       (element === null || c.element.id === element) &&
       (path === null || c.path.id === path) &&
       (rarity === null || c.rarity === rarity) &&
       (!showcasedOnly || c.showcased),
   );
+  // 서버가 준 순서(희귀도 → 레벨 → 성혼 → 이름)를 기본으로 두고, 고른 기준을 앞에 세운다
+  const shown = [...filtered].sort((a, b) => {
+    switch (sort) {
+      case "level":
+        return b.level - a.level || b.rarity - a.rarity || b.eidolon - a.eidolon;
+      case "eidolon":
+        return b.eidolon - a.eidolon || b.rarity - a.rarity || b.level - a.level;
+      case "showcase":
+        return Number(b.showcased) - Number(a.showcased) || b.rarity - a.rarity || b.level - a.level;
+      case "name":
+        return a.name.localeCompare(b.name, LANGS[lang].locale);
+      default:
+        return 0;
+    }
+  });
+  const sortOptions: { key: SortKey; label: string }[] = [
+    { key: "default", label: d.sort_default },
+    { key: "level", label: d.sort_level },
+    { key: "eidolon", label: d.sort_eidolon },
+    { key: "showcase", label: d.sort_showcase },
+    { key: "name", label: d.sort_name },
+  ];
 
   const chip = (active: boolean) =>
     `flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition ${
@@ -84,9 +109,23 @@ export default function RosterGrid({ uid, cards }: { uid: string; cards: CardMod
             {d.filter_showcase_only}
           </button>
         </div>
-        <span className="ml-auto text-xs text-muted">
-          {fmt(d.filter_count, { shown: shown.length, total: cards.length })}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            aria-label={d.sort_label}
+            className="h-7 rounded-md border border-card-border bg-background/60 px-1.5 text-xs text-muted outline-none hover:text-foreground focus:border-accent"
+          >
+            {sortOptions.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-muted">
+            {fmt(d.filter_count, { shown: shown.length, total: cards.length })}
+          </span>
+        </div>
       </div>
 
       {shown.length === 0 ? (

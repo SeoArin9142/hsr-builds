@@ -36,12 +36,19 @@ AES-GCM(EDIT_SECRET 유도 키)으로 암호화해 그 브라우저의 httpOnly 
 | `/u/{uid}` | 프로필 + 파티 편성(+편집기) + 캐릭터 전체(속성·운명·희귀도·전시 필터) |
 | `/u/{uid}/c/{characterId}` | 캐릭터 상세: 기초/가산/최종 스탯 표, 광추, 유물 6부위(부옵 강화 횟수), 세트 효과, 행적, 성혼. "AI 평가용 텍스트 복사" 버튼 |
 | `/api/u/{uid}` | 정리된 JSON (전시 + HoYoLAB 합본, `sources` 에 출처 상태). `?raw=1` 이면 Mihomo 원본 |
-| `/api/u/{uid}/md` | 캐릭터 전체 마크다운. `?c={characterId}` 한 명, `?showcase=1` 전시만. AI 에게 이 주소를 주면 된다 |
+| `/api/u/{uid}/md` | 캐릭터 전체 마크다운. `?c={characterId}` 한 명, `?showcase=1` 전시만, `?lang=ko|en|ja|cn|tw` 언어. AI 에게 이 주소를 주면 된다 |
 | `/api/u/{uid}/parties` | GET 파티 목록 / PUT 저장(편집 토큰 필요) |
 | `/api/u/{uid}/claim` | GET 확인 코드 / POST 본인 확인(서명 또는 관리자 키) → 편집 토큰 쿠키 |
 | `/link`, `/api/link` | 내 계정 연결 (GET 상태 / POST 연결 / DELETE 해제) |
 | `/admin`, `/api/admin/status` | 쿠키 풀 상태 (헤더 `x-admin-key: EDIT_ADMIN_KEY`) |
 | `/u/{uid}?refresh=1` | 캐시 무시하고 다시 조회 — 자기 쿠키를 연결했거나 그 UID 의 주인으로 확인된 사람만 |
+
+## 언어
+
+한국어·English·日本語·简体中文·繁體中文. 머리말에서 고르면 쿠키(`hsrb_lang`)에 저장, 없으면 브라우저 언어.
+문구는 `src/lib/i18n.ts` 사전 하나로 관리하고(키가 빠지면 타입 오류), 데이터 이름은 Mihomo(`lang=kr|en|jp|cn|cht`)·
+StarRailRes(`index_min/{kr,en,jp,cn,cht}`)·HoYoLAB(`x-rpc-language`)에 같은 언어를 요청해 맞춘다. 캐시도 언어별.
+중국 서버 UID(1~5 로 시작)는 전시만 된다 — HoYoLAB 이 아니라 米游社를 써서 계정 연결이 안 된다.
 
 ## 파티 편집 (본인 확인)
 

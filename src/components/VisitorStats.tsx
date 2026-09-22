@@ -1,4 +1,4 @@
-import { fmt, getDict } from "@/lib/i18n";
+import { fmt, getDict, LANGS } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 import { redisCmd, redisConfigured } from "@/lib/redis";
 
@@ -33,7 +33,7 @@ export default async function VisitorStats() {
   const [stats, lang] = await Promise.all([readStats(), getLang()]);
   if (!stats) return null;
   const d = getDict(lang);
-  const n = (v: number) => v.toLocaleString(lang === "ko" ? "ko-KR" : lang === "ja" ? "ja-JP" : "en-US");
+  const n = (v: number) => v.toLocaleString(LANGS[lang].locale);
   return (
     <div
       className="hidden items-center gap-3 whitespace-nowrap text-xs text-muted md:flex"

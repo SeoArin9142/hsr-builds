@@ -13,6 +13,8 @@ export const getLang = cache(async (): Promise<Lang> => {
   const first = ((await headers()).get("accept-language") ?? "").split(",")[0].trim().toLowerCase();
   if (first.startsWith("ko")) return "ko";
   if (first.startsWith("ja")) return "ja";
+  if (/^zh-(tw|hk|mo|hant)/.test(first)) return "tw";
+  if (first.startsWith("zh")) return "cn";
   if (first && first !== "*") return "en"; // 도구(curl·AI)가 보내는 "*" 는 선호 없음 → 기본 한국어
   return "ko";
 });

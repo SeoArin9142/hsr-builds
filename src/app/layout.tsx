@@ -5,7 +5,7 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { LangProvider } from "@/components/LangProvider";
 import SiteHeader from "@/components/SiteHeader";
-import { getDict } from "@/lib/i18n";
+import { getDict, LANGS } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 
 const notoKr = Noto_Sans_KR({
@@ -37,7 +37,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const lang = await getLang();
   const d = getDict(lang);
   return (
-    <html lang={lang} className={`${notoKr.variable} h-full antialiased`}>
+    <html lang={LANGS[lang].locale} className={`${notoKr.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
         <LangProvider lang={lang}>
           <SiteHeader />

@@ -6,6 +6,8 @@ const FAMILY: Record<string, string> = {
   ko: "Noto Sans KR",
   en: "Noto Sans KR",
   ja: "Noto Sans JP",
+  cn: "Noto Sans SC",
+  tw: "Noto Sans TC",
 };
 
 export async function loadOgFont(lang: string, text: string): Promise<ArrayBuffer | null> {
