@@ -1,3 +1,4 @@
+import type { EndgameRecord } from "./endgame";
 import { getDict, tr, type Lang } from "./i18n";
 import type { PartyFile } from "./parties";
 import type { Roster } from "./roster";
@@ -86,7 +87,22 @@ export interface NormShowcase {
     };
   };
   parties: NormParty[]; // 계정 주인이 편집기로 만든 파티 (없으면 빈 배열)
+  endgame: NormEndgame[]; // 실제 클리어 기록 (없으면 빈 배열)
   characters: NormCharacter[];
+}
+
+export interface NormEndgame {
+  mode: string; // moc | pf | as
+  mode_name: string;
+  season: string;
+  stars: number;
+  max_floor: string;
+  floors: {
+    name: string;
+    stars: number;
+    cycles?: number;
+    teams: { members: string[]; score?: string; boss_defeated?: boolean }[];
+  }[];
 }
 
 export interface NormParty {
@@ -173,7 +189,33 @@ export function normalizeCharacter(c: Character, lang: Lang = "ko"): NormCharact
   };
 }
 
-export function normalizeRoster(r: Roster, parties?: PartyFile | null, lang: Lang = "ko"): NormShowcase {
+function normalizeEndgame(records: EndgameRecord[], lang: Lang): NormEndgame[] {
+  const d = getDict(lang);
+  return records.map((rec) => ({
+    mode: rec.mode,
+    mode_name: rec.mode === "moc" ? d.eg_moc : rec.mode === "pf" ? d.eg_pf : d.eg_as,
+    season: rec.season,
+    stars: rec.stars,
+    max_floor: rec.maxFloor,
+    floors: rec.floors.map((f) => ({
+      name: f.name,
+      stars: f.stars,
+      ...(typeof f.cycles === "number" ? { cycles: f.cycles } : {}),
+      teams: f.nodes.map((n) => ({
+        members: n.avatars.map((a) => `${a.name}(E${a.eidolon})`),
+        ...(n.score ? { score: n.score } : {}),
+        ...(typeof n.bossDefeated === "boolean" ? { boss_defeated: n.bossDefeated } : {}),
+      })),
+    })),
+  }));
+}
+
+export function normalizeRoster(
+  r: Roster,
+  parties?: PartyFile | null,
+  lang: Lang = "ko",
+  endgame: EndgameRecord[] = [],
+): NormShowcase {
   const byId = new Map(r.characters.map((c) => [c.id, c]));
   const nameOf = (id: string) => byId.get(id)?.name ?? r.index.characters[id]?.name ?? `#${id}`;
   return {
@@ -199,6 +241,7 @@ export function normalizeRoster(r: Roster, parties?: PartyFile | null, lang: Lan
       ...(p.note ? { note: p.note } : {}),
       members: p.members.map((id) => ({ id, name: nameOf(id) })),
     })),
+    endgame: normalizeEndgame(endgame, lang),
     characters: r.characters.map((c) => normalizeCharacter(c, lang)),
   };
 }
@@ -310,6 +353,34 @@ export function showcaseToMarkdown(
       head.push(`- ${String(p.no).padStart(2, "0")} "${p.name}": ${members}${p.note ? ` — "${p.note}"` : ""}`);
     }
     head.push("");
+  }
+  if (!opts.only && n.endgame.length > 0) {
+    head.push("## " + t("eg_title"));
+    for (const rec of n.endgame) {
+      head.push(
+        `### ${rec.mode_name}${rec.season ? ` — ${rec.season}` : ""} (${t("eg_stars", { n: rec.stars })}${
+          rec.max_floor ? `, ${t("eg_max_floor", { name: rec.max_floor })}` : ""
+        })`,
+      );
+      for (const f of rec.floors) {
+        const teams = f.teams
+          .map((tm) => {
+            const extra = [tm.score ? t("eg_score", { n: tm.score }) : null, tm.boss_defeated === false ? "✗" : null]
+              .filter(Boolean)
+              .join(" ");
+            return `${tm.members.join(", ")}${extra ? ` [${extra}]` : ""}`;
+          })
+          .join(" / ");
+        const meta = [
+          t("eg_stars", { n: f.stars }),
+          typeof f.cycles === "number" && rec.mode !== "as" ? t("eg_cycles", { n: f.cycles }) : null,
+        ]
+          .filter(Boolean)
+          .join(", ");
+        head.push(`- ${f.name} (${meta}): ${teams}`);
+      }
+      head.push("");
+    }
   }
   return head.concat(chars.map((c) => characterToMarkdown(c, lang))).join("\n");
 }

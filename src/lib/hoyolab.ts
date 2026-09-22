@@ -577,7 +577,7 @@ export interface RosterOptions {
 }
 
 /** 이 UID 의 주인 쿠키들 (방문자 쿠키 → 풀 순) */
-async function ownerCookies(
+export async function ownerCookies(
   uid: string,
   viewer: HoyoCookie | null,
   pool: HoyoCookie[],
@@ -593,6 +593,19 @@ async function ownerCookies(
  * 조회 순서: 메모리 캐시 → Redis 캐시 → (주인 쿠키가 있을 때만) HoYoLAB.
  * 캐시가 1시간 넘게 오래됐고 주인 쿠키가 있으면 새로 받고, 주인 쿠키가 없으면 있는 캐시를 그대로 준다.
  */
+/** 서버 서버코드 (UID 첫 자리). 중국 서버면 null */
+export function serverOf(uid: string): string | null {
+  return SERVER[uid[0]] ?? null;
+}
+
+/** 이 UID 의 주인 쿠키 하나 (없으면 null) */
+export async function firstOwnerCookie(uid: string, viewer: HoyoCookie | null): Promise<HoyoCookie | null> {
+  const pool = poolCookies();
+  if (!viewer && pool.length === 0) return null;
+  const owners = await ownerCookies(uid, viewer, pool, getKV());
+  return owners[0] ?? null;
+}
+
 export async function getHoyolabRoster(
   uid: string,
   idx: GameIndex,

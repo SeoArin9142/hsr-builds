@@ -13,7 +13,7 @@ import { getLang } from "@/lib/lang";
 import { getShowcase } from "@/lib/mihomo";
 import { characterToMarkdown, normalizeCharacter } from "@/lib/normalize";
 import { getRoster } from "@/lib/roster";
-import { getGameIndex } from "@/lib/starrailres";
+import { charName, getGameIndex } from "@/lib/starrailres";
 import { levelText } from "@/lib/stats";
 import { getViewerCookie } from "@/lib/viewer";
 
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const lang = await getLang();
   const [showcase, index] = await Promise.all([getShowcase(uid, lang), getGameIndex(lang)]);
   if (!showcase.ok) return { title: `UID ${uid}` };
-  const name = index.characters[id]?.name ?? `#${id}`;
+  const name = charName(index.characters[id]?.name, id, lang);
   const d = getDict(lang);
   const title = `${name} — ${showcase.data.player.nickname}`;
   const description = `${d.char_stats} · ${d.char_lightcone} · ${d.char_relics} · ${d.char_traces} (UID ${uid})`;
@@ -44,7 +44,7 @@ export default async function CharacterPage({ params }: Props) {
   const c = characters.find((x) => x.id === id);
 
   if (!c) {
-    const name = index.characters[id]?.name ?? `#${id}`;
+    const name = charName(index.characters[id]?.name, id, lang);
     const why =
       hoyolab.status === "ok"
         ? d.char_notfound_owned

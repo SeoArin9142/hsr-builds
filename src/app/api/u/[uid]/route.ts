@@ -4,6 +4,7 @@ import { getShowcase } from "@/lib/mihomo";
 import { normalizeRoster } from "@/lib/normalize";
 import { getParties } from "@/lib/parties";
 import { getRoster } from "@/lib/roster";
+import { getEndgame } from "@/lib/endgame";
 import { getViewerCookie } from "@/lib/viewer";
 
 /**
@@ -30,7 +31,8 @@ export async function GET(
   if (!result.ok) {
     return NextResponse.json({ error: result.message }, { status: result.status });
   }
-  return NextResponse.json(normalizeRoster(result.roster, parties, lang), {
+  const endgame = await getEndgame(uid, result.roster.index, { viewer, lang });
+  return NextResponse.json(normalizeRoster(result.roster, parties, lang, endgame.records), {
     headers: { "Cache-Control": "public, max-age=60, s-maxage=300" },
   });
 }

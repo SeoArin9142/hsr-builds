@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import EndgameSection from "@/components/EndgameSection";
 import ErrorBox from "@/components/ErrorBox";
 import GameImage from "@/components/GameImage";
 import PartyCard from "@/components/PartyCard";
@@ -9,6 +10,7 @@ import RosterGrid from "@/components/RosterGrid";
 import { SectionTitle } from "@/components/Badges";
 import { toCardModel } from "@/lib/cards";
 import { cookieName, verifyToken } from "@/lib/claim";
+import { getEndgame } from "@/lib/endgame";
 import { fmt, getDict, LANGS } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 import { resolveMember } from "@/lib/members";
@@ -47,8 +49,9 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   const canEdit = verifyToken(uid, jar.get(cookieName(uid))?.value);
   // 새로고침(캐시 무시)은 이 UID 를 연결한 본인이거나 이 UID 의 주인으로 확인된 사람만
   const canRefresh = (viewer?.uids ?? []).includes(uid) || canEdit;
+  const doRefresh = refresh === "1" && canRefresh;
   const [result, partyFile] = await Promise.all([
-    getRoster(uid, { viewer, refresh: refresh === "1" && canRefresh, lang }),
+    getRoster(uid, { viewer, refresh: doRefresh, lang }),
     getParties(uid),
   ]);
 
@@ -57,6 +60,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   }
 
   const { player, characters, showcaseIds, hoyolab, index } = result.roster;
+  const endgame = await getEndgame(uid, index, { viewer, refresh: doRefresh, lang });
   const byId = new Map(characters.map((c) => [c.id, c]));
   const space = player.space_info;
   const parties = partyFile?.parties ?? [];
@@ -167,13 +171,16 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           <div className="grid gap-4 md:grid-cols-2">
             {parties.map((party) => {
               const members = Array.from({ length: 4 }, (_, i) =>
-                party.members[i] ? resolveMember(party.members[i], byId, index) : null,
+                party.members[i] ? resolveMember(party.members[i], byId, index, lang) : null,
               );
               return <PartyCard key={party.no} uid={uid} party={party} members={members} lang={lang} />;
             })}
           </div>
         )}
       </section>
+
+      {/* 엔드 콘텐츠 기록 — 실제로 클리어한 편성·사이클 */}
+      <EndgameSection uid={uid} records={endgame.records} fetchedAt={endgame.fetchedAt} lang={lang} />
 
       {/* 캐릭터 */}
       <section>

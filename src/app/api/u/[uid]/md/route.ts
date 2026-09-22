@@ -3,6 +3,7 @@ import { getLang } from "@/lib/lang";
 import { normalizeRoster, showcaseToMarkdown } from "@/lib/normalize";
 import { getParties } from "@/lib/parties";
 import { getRoster } from "@/lib/roster";
+import { getEndgame } from "@/lib/endgame";
 import { getViewerCookie } from "@/lib/viewer";
 
 /**
@@ -28,8 +29,9 @@ export async function GET(
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
+  const endgame = await getEndgame(uid, result.roster.index, { viewer, lang });
   const md = showcaseToMarkdown(
-    normalizeRoster(result.roster, parties, lang),
+    normalizeRoster(result.roster, parties, lang, endgame.records),
     { only: q.get("c") ?? undefined, showcaseOnly: q.get("showcase") === "1" },
     lang,
   );

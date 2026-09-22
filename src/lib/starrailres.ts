@@ -1,4 +1,4 @@
-import { LANGS, type Lang } from "./i18n";
+import { LANGS, tr, type Lang } from "./i18n";
 import { ASSET_BASE } from "./mihomo";
 
 /**
@@ -76,6 +76,12 @@ async function fetchIndex<T>(name: string, lang: Lang): Promise<Record<string, T
   } catch {
     return {};
   }
+}
+
+/** StarRailRes 는 개척자 이름을 "{NICKNAME}" 으로 준다 — 언어별 "개척자" 로 바꾼다 */
+export function charName(name: string | undefined, id: string, lang: Lang): string {
+  if (!name) return `#${id}`;
+  return name.replace(/\{NICKNAME\}/g, tr(lang, "trailblazer"));
 }
 
 export async function getGameIndex(lang: Lang = "ko"): Promise<GameIndex> {

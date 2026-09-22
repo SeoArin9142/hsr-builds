@@ -1,5 +1,6 @@
+import type { Lang } from "./i18n";
+import { charName, type GameIndex } from "./starrailres";
 import type { Character } from "./types";
-import type { GameIndex } from "./starrailres";
 
 /** 파티 슬롯 하나를 그리는 데 필요한 정보. 상세 데이터(전시 또는 HoYoLAB)가 있으면 showcase 에 붙는다. */
 export interface MemberView {
@@ -16,6 +17,7 @@ export function resolveMember(
   id: string,
   byId: Map<string, Character>,
   index: GameIndex,
+  lang: Lang = "ko",
 ): MemberView {
   const c = byId.get(id);
   if (c) {
@@ -35,7 +37,7 @@ export function resolveMember(
   const pa = ic ? index.paths[ic.path] : undefined;
   return {
     id,
-    name: ic?.name ?? `#${id}`,
+    name: charName(ic?.name, id, lang),
     icon: ic?.icon ?? `icon/character/${id}.png`,
     rarity: ic?.rarity ?? 0,
     element: {
