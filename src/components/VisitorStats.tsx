@@ -1,5 +1,6 @@
 import { fmt, getDict, LANGS } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
+import { kstDay } from "@/lib/kst";
 import { redisCmd, redisConfigured } from "@/lib/redis";
 
 /** 머리말의 방문자 수 — proxy.ts 가 세어 둔 값을 30초 캐시로 읽는다. Redis 없으면(로컬) 안 그린다. */
@@ -7,9 +8,6 @@ import { redisCmd, redisConfigured } from "@/lib/redis";
 type Stats = { todayUv: number; totalUv: number; totalPv: number };
 let cache: { at: number; value: Stats } | null = null;
 
-function kstDay(): string {
-  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
-}
 
 async function readStats(): Promise<Stats | null> {
   if (!redisConfigured()) return null;

@@ -7,6 +7,11 @@ import { getKV } from "./kvstore";
 
 const DEFAULT_QUIET_SECONDS = 20 * 3600; // 하루에 한 번
 
+/** 보내지 않고 "이미 보낸 것"으로만 표시한다 (같은 내용을 두 번 보내지 않으려고) */
+export async function markAlerted(key: string, quietSeconds = DEFAULT_QUIET_SECONDS): Promise<void> {
+  await getKV().set(`alert:sent:${key}`, "1", quietSeconds).catch(() => {});
+}
+
 export async function alert(key: string, text: string, quietSeconds = DEFAULT_QUIET_SECONDS): Promise<boolean> {
   const kv = getKV();
   const mark = `alert:sent:${key}`;
