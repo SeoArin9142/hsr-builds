@@ -81,7 +81,7 @@ export default function AdminPage() {
                   <td className="py-1.5 text-right tabular-nums">{c.today} / 30</td>
                   <td className="py-1.5 text-right">
                     {c.dead ? (
-                      <span className="text-red-300">만료 — 다시 로그인해 쿠키 갱신</span>
+                      <span className="text-red-300">만료 — 쿠키를 갱신하면 다음 조회 때 자동 복구</span>
                     ) : c.exhausted ? (
                       <span className="text-amber-300">오늘 한도 소진</span>
                     ) : (

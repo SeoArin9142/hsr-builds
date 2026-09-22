@@ -656,6 +656,20 @@ export async function getHoyolabRoster(
   return p;
 }
 
+/** 쿠키가 살아 있는지 (게임 기록 카드 — 한도를 안 쓴다) */
+async function isAlive(ck: HoyoCookie): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://bbs-api-os.hoyolab.com/game_record/card/wapi/getGameRecordCard?uid=${ck.ltuid}`,
+      { headers: headersFor(ck), cache: "no-store", signal: AbortSignal.timeout(10000) },
+    );
+    const body = (await res.json()) as { retcode: number };
+    return body.retcode === 0;
+  } catch {
+    return false;
+  }
+}
+
 /** 쿠키(계정)에 연동된 스타레일 UID 목록. 게임 기록 카드는 한도를 안 쓰므로 하루 캐시. */
 async function ownedUids(ck: HoyoCookie, kv: KV): Promise<string[]> {
   const key = `hoyo:owned:${ck.id}`;
@@ -707,7 +721,12 @@ async function fetchWithCookies(
 
   let last: HoyolabResult | null = null;
   for (const ck of candidates) {
-    if (await kv.get(`hoyo:dead:${ck.id}`).catch(() => null)) continue;
+    // 만료 표시된 쿠키는 (관리자가 갱신했을 수 있으니) 한도를 안 쓰는 게임 기록 카드로 다시 확인한다
+    if (await kv.get(`hoyo:dead:${ck.id}`).catch(() => null)) {
+      if (!(await isAlive(ck))) continue;
+      await kv.del(`hoyo:dead:${ck.id}`).catch(() => {});
+      await kv.del(`hoyo:owned:${ck.id}`).catch(() => {});
+    }
     if (await kv.get(`hoyo:exhausted:${ck.id}:${day}`).catch(() => null)) continue;
 
     const r = await fetchRoster(uid, server, ck, idx);

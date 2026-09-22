@@ -1,5 +1,6 @@
 import {
   redisConfigured,
+  redisDel,
   redisGet,
   redisSAdd,
   redisSCard,
@@ -14,6 +15,7 @@ import {
 export interface KV {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttlSeconds: number): Promise<void>;
+  del(key: string): Promise<void>;
   sadd(key: string, member: string, ttlSeconds: number): Promise<void>;
   scard(key: string): Promise<number>;
   smembers(key: string): Promise<string[]>;
@@ -38,6 +40,9 @@ const memoryKV: KV = {
   async set(key, value, ttlSeconds) {
     memValues.set(key, { value, exp: Date.now() + ttlSeconds * 1000 });
   },
+  async del(key) {
+    memValues.delete(key);
+  },
   async sadd(key, member, ttlSeconds) {
     const e = memSets.get(key);
     if (!e || e.exp < Date.now()) {
@@ -60,6 +65,7 @@ const memoryKV: KV = {
 const redisKV: KV = {
   get: redisGet,
   set: redisSet,
+  del: redisDel,
   sadd: redisSAdd,
   scard: redisSCard,
   smembers: redisSMembers,
