@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    // 브라우저가 원본 CDN(StarRailRes·HoYoverse)에서 바로 받는다 — Vercel 무료 한도(이미지 최적화·대역폭)를 안 쓴다
+    unoptimized: true,
     // 캐릭터/유물/광추 이미지는 StarRailRes(GitHub raw)에서 가져온다.
     remotePatterns: [
       {

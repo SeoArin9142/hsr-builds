@@ -7,6 +7,7 @@ type Status = {
   backend: string;
   cookies: { id: string; ltuidMasked: string; today: number; exhausted: boolean; dead: boolean }[];
   feedback: { id: string; at: number; message: string; contact?: string; page?: string }[];
+  month: { key: string; used: number; budget: number };
 };
 
 /** 사이트 주인용: 쿠키 풀 상태 보기 (EDIT_ADMIN_KEY 필요) */
@@ -66,6 +67,14 @@ export default function AdminPage() {
           <p className="text-muted">
             기준일(UTC+8) {status.day} · 저장소 {status.backend}
             {status.backend === "memory" && " (Redis 없음 — 서버가 잠들면 기록이 사라짐)"}
+          </p>
+          <p className="mt-1 text-muted">
+            이번 달({status.month.key}) 요청 {status.month.used.toLocaleString("ko-KR")} /{" "}
+            {status.month.budget.toLocaleString("ko-KR")} — 넘으면 다음 달 1일까지 안내 화면. 예산은 환경변수{" "}
+            <code>MONTHLY_BUDGET</code>.{" "}
+            <a href="/api/admin/quota-preview" target="_blank" className="text-accent hover:underline">
+              안내 화면 미리보기 ↗
+            </a>
           </p>
           <table className="mt-3 w-full">
             <thead className="text-xs text-muted">
