@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.hoyolab.com" },
     ],
   },
+  async rewrites() {
+    return [{ source: "/start", destination: "/" }];
+  },
   async headers() {
     return [
       {

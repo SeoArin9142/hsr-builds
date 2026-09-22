@@ -24,8 +24,12 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s | HSR Builds",
     },
     description: `${d.home_intro1} ${d.home_intro2}`,
-    openGraph: { siteName: "HSR Builds", type: "website" },
-    twitter: { card: "summary_large_image" },
+    openGraph: {
+      siteName: "HSR Builds",
+      type: "website",
+      images: [{ url: "/og-home.png", width: 1200, height: 630, alt: "HSR Builds" }],
+    },
+    twitter: { card: "summary_large_image", images: ["/og-home.png"] },
   };
 }
 
