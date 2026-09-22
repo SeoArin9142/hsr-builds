@@ -6,6 +6,7 @@ import CopyButton from "@/components/CopyButton";
 import ErrorBox from "@/components/ErrorBox";
 import GameImage from "@/components/GameImage";
 import LightConeCard from "@/components/LightConeCard";
+import MemospriteCard from "@/components/MemospriteCard";
 import { RelicCard, RelicSetList, sortRelics } from "@/components/RelicCard";
 import SkillList from "@/components/SkillList";
 import StatTable from "@/components/StatTable";
@@ -155,6 +156,14 @@ export default async function CharacterPage({ params }: Props) {
         <SectionTitle>{d.char_traces}</SectionTitle>
         <SkillList c={c} lang={lang} />
       </section>
+
+      {/* 기억 정령 — 전적에서 받은 캐릭터에만 있다 */}
+      {c.memosprite && (
+        <section>
+          <SectionTitle>{d.memo_title}</SectionTitle>
+          <MemospriteCard m={c.memosprite} lang={lang} />
+        </section>
+      )}
     </div>
   );
 }

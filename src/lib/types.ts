@@ -87,6 +87,25 @@ export interface RelicSet {
   properties: Prop[];
 }
 
+/** 기억 정령 (기억의 운명 캐릭터가 소환하는 분신) — HoYoLAB 전적에만 있다 */
+export interface MemospriteSkill {
+  id: string;
+  name: string;
+  type_text: string; // 기억 정령 스킬 / 기억 정령 특성
+  level: number;
+  max_level: number; // 0 이면 모름
+  icon: string;
+  desc: string;
+}
+
+export interface Memosprite {
+  id: string;
+  name: string;
+  icon: string;
+  stats: Prop[]; // 최종 수치만 (기초/가산으로 나눠 오지 않는다)
+  skills: MemospriteSkill[];
+}
+
 export type DataSource = "showcase" | "hoyolab";
 
 export interface Character {
@@ -106,6 +125,7 @@ export interface Character {
   skills: Skill[];
   skill_trees: SkillTree[];
   light_cone: LightCone | null;
+  memosprite?: Memosprite | null; // 기억의 운명 캐릭터만
   relics: Relic[];
   relic_sets: RelicSet[];
   attributes: Prop[]; // 캐릭터+광추 기초 스탯

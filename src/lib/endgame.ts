@@ -168,7 +168,7 @@ function toNode(n: HoyoNode | null | undefined, idx: GameIndex, lang: Lang): End
 }
 
 /** "폭풍 소탕•12스타라이즈 모드" → "폭풍 소탕•12" (층 번호 뒤에 모드 이름이 구분자 없이 붙어 온다) */
-function floorName(raw: string): string {
+export function floorName(raw: string): string {
   const s = clean(raw).split(/\r?\n/)[0];
   const marks = s.match(/[\d)]/g);
   if (!marks) return s;

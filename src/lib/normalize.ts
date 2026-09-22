@@ -57,6 +57,11 @@ export interface NormCharacter {
     max_level: number | null;
     superimpose: number;
   } | null;
+  memosprite?: {
+    name: string;
+    stats: { name: string; display: string }[];
+    skills: { name: string; type: string; level: number; max_level: number | null }[];
+  } | null;
   traces: {
     basic: number;
     skill: number;
@@ -186,6 +191,21 @@ export function normalizeCharacter(c: Character, lang: Lang = "ko", score?: Char
           level: c.light_cone.level,
           max_level: maxLevel(c.light_cone.promotion),
           superimpose: c.light_cone.rank,
+        }
+      : null,
+    memosprite: c.memosprite
+      ? {
+          name: c.memosprite.name,
+          stats: c.memosprite.stats.map((s) => ({
+            name: s.name,
+            display: formatStat(s.value, s.percent),
+          })),
+          skills: c.memosprite.skills.map((k) => ({
+            name: k.name,
+            type: k.type_text,
+            level: k.level,
+            max_level: k.max_level > 0 ? k.max_level : null,
+          })),
         }
       : null,
     traces: {
@@ -321,6 +341,13 @@ export function characterToMarkdown(n: NormCharacter, lang: Lang = "ko"): string
     );
   } else {
     lines.push("- " + t("md_lightcone_none"));
+  }
+  if (n.memosprite) {
+    const skills = n.memosprite.skills
+      .map((k) => `${k.type} Lv.${k.level}${k.max_level ? "/" + k.max_level : ""}`)
+      .join(", ");
+    const stats = n.memosprite.stats.map((s) => `${s.name} ${s.display}`).join(" / ");
+    lines.push("- " + t("md_memosprite", { name: n.memosprite.name, skills, stats }));
   }
   lines.push(
     "- " +

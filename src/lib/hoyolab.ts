@@ -2,11 +2,14 @@ import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { getDict, LANGS, tr, type Lang } from "./i18n";
 import { getKV, kvBackend, type KV } from "./kvstore";
+import { fillLightCone, getGameDetail, promotionFromLevel, type GameDetail } from "./gamedata";
 import { saveReco } from "./reco";
 import type { GameIndex } from "./starrailres";
 import type {
   Character,
   LightCone,
+  Memosprite,
+  MemospriteSkill,
   Prop,
   Relic,
   RelicSet,
@@ -105,6 +108,21 @@ interface HoyoEquip {
   icon: string;
   rarity: number;
 }
+interface HoyoServantSkill {
+  point_id: string;
+  anchor: string; // Point19 기억 정령 스킬, Point20 기억 정령 특성
+  item_url: string;
+  level: number;
+  remake: string;
+  skill_stages?: { name?: string; desc?: string }[];
+}
+interface HoyoServant {
+  servant_id: string;
+  servant_name: string;
+  servant_icon: string;
+  servant_properties?: HoyoProperty[] | null;
+  servant_skills?: HoyoServantSkill[] | null;
+}
 interface HoyoAvatar {
   id: number;
   level: number;
@@ -116,6 +134,7 @@ interface HoyoAvatar {
   rank: number; // 성혼
   base_type: number; // 운명의 길 번호
   equip: HoyoEquip | null;
+  servant_detail?: HoyoServant | null;
   relics: HoyoRelic[];
   ornaments: HoyoRelic[];
   ranks: HoyoRank[];
@@ -237,6 +256,12 @@ const PERCENT_BASE: Record<string, number> = {
   crit_rate: 0.05,
   crit_dmg: 0.5,
   sp_rate: 1,
+};
+
+// 기억 정령 행적 (전적에서는 Point19·Point20 으로 온다)
+const MEMO_SKILL_TYPE: Record<string, string> = {
+  Point19: "MemospriteSkill",
+  Point20: "MemospriteTalent",
 };
 
 const SKILL_TYPE: Record<string, string> = {
@@ -369,14 +394,17 @@ function toStats(props: HoyoProperty[], lang: Lang): { attributes: Prop[]; addit
   return { attributes, additions };
 }
 
-function toSkills(nodes: HoyoSkill[]): { skills: Skill[]; skill_trees: SkillTree[] } {
+function toSkills(
+  nodes: HoyoSkill[],
+  maxByType: Record<string, number> = {},
+): { skills: Skill[]; skill_trees: SkillTree[] } {
   const skills = nodes
     .filter((s) => SKILL_TYPE[s.anchor])
     .map<Skill>((s) => ({
       id: s.point_id,
       name: clean(s.skill_stages?.[0]?.name) || clean(s.remake),
       level: s.level,
-      max_level: 0,
+      max_level: maxByType[SKILL_TYPE[s.anchor]] ?? 0,
       element: null,
       type: SKILL_TYPE[s.anchor],
       type_text: clean(s.remake),
@@ -390,14 +418,61 @@ function toSkills(nodes: HoyoSkill[]): { skills: Skill[]; skill_trees: SkillTree
     id: s.point_id,
     level: s.is_activated ? s.level : 0,
     anchor: s.anchor,
-    max_level: SKILL_TYPE[s.anchor] ? 0 : 1,
+    max_level: SKILL_TYPE[s.anchor] ? (maxByType[SKILL_TYPE[s.anchor]] ?? 0) : 1,
     icon: s.item_url,
     parent: s.pre_point && s.pre_point !== "0" ? s.pre_point : null,
   }));
   return { skills, skill_trees };
 }
 
-export function toCharacter(a: HoyoAvatar, idx: GameIndex, lang: Lang): Character {
+/**
+ * 기억 정령. 기억의 운명 캐릭터가 아니면 servant_id 가 "0" 으로 온다.
+ * 스탯은 기초/가산으로 나눠 주지 않아 최종값만 싣는다.
+ */
+function toMemosprite(
+  s: HoyoServant | null | undefined,
+  lang: Lang,
+  maxByType: Record<string, number> = {},
+): Memosprite | null {
+  if (!s || !s.servant_id || s.servant_id === "0") return null;
+  const stats: Prop[] = [];
+  for (const p of s.servant_properties ?? []) {
+    const field = STAT_FIELD[p.property_type];
+    if (!field) continue;
+    const percent = p.final.includes("%");
+    const value = parseNum(p.final);
+    // 0% 짜리 (그 캐릭터와 무관한 속성 피해 등) 는 넣지 않는다
+    if (percent && Math.abs(value) < 1e-9) continue;
+    stats.push({
+      field,
+      name: fieldName(lang, field),
+      icon: FIELD_ICON[field] ?? "",
+      value,
+      display: clean(p.final),
+      percent,
+    });
+  }
+  const skills = (s.servant_skills ?? [])
+    .filter((k) => MEMO_SKILL_TYPE[k.anchor])
+    .map<MemospriteSkill>((k) => ({
+      id: k.point_id,
+      name: clean(k.skill_stages?.[0]?.name) || clean(k.remake),
+      type_text: clean(k.remake),
+      level: k.level,
+      max_level: maxByType[MEMO_SKILL_TYPE[k.anchor]] ?? 0,
+      icon: k.item_url,
+      desc: clean(k.skill_stages?.[0]?.desc),
+    }));
+  return {
+    id: String(s.servant_id),
+    name: clean(s.servant_name),
+    icon: s.servant_icon,
+    stats,
+    skills,
+  };
+}
+
+export function toCharacter(a: HoyoAvatar, idx: GameIndex, lang: Lang, detail?: GameDetail): Character {
   const id = String(a.id);
   const ic = idx.characters[id];
   const elementId = ic?.element ?? ELEMENT_ID[a.element] ?? "Physical";
@@ -406,7 +481,7 @@ export function toCharacter(a: HoyoAvatar, idx: GameIndex, lang: Lang): Characte
   const pa = idx.paths[pathId];
   const relics = [...(a.relics ?? []), ...(a.ornaments ?? [])].map((r) => toRelic(r, idx, lang));
   const { attributes, additions } = toStats(a.properties ?? [], lang);
-  const { skills, skill_trees } = toSkills(a.skills ?? []);
+  const { skills, skill_trees } = toSkills(a.skills ?? [], detail?.skillMax[id]);
 
   return {
     source: "hoyolab",
@@ -415,7 +490,7 @@ export function toCharacter(a: HoyoAvatar, idx: GameIndex, lang: Lang): Characte
     rarity: a.rarity,
     rank: a.rank,
     level: a.level,
-    promotion: -1,
+    promotion: promotionFromLevel(a.level),
     icon: ic?.icon ?? a.icon,
     preview: ic?.preview ?? a.image,
     portrait: ic?.portrait ?? a.image,
@@ -429,7 +504,8 @@ export function toCharacter(a: HoyoAvatar, idx: GameIndex, lang: Lang): Characte
     },
     skills,
     skill_trees,
-    light_cone: toLightCone(a.equip, idx),
+    light_cone: detail ? fillLightCone(detail, toLightCone(a.equip, idx)) : toLightCone(a.equip, idx),
+    memosprite: toMemosprite(a.servant_detail, lang, detail?.skillMax[id]),
     relics,
     relic_sets: toRelicSets(relics, idx),
     attributes,
@@ -560,11 +636,13 @@ async function fetchRoster(
     }
     void saveReco(map);
   }
+  // 광추 기초 스탯·스킬 최대 레벨처럼 HoYoLAB 이 안 주는 칸은 StarRailRes 로 메운다
+  const detail = await getGameDetail(lang);
   // 한 캐릭터의 데이터가 이상해도 나머지는 보여 준다
   const characters: Character[] = [];
   for (const a of body.data.avatar_list ?? []) {
     try {
-      characters.push(toCharacter(a, idx, lang));
+      characters.push(toCharacter(a, idx, lang, detail));
     } catch (e) {
       console.error(`[hoyolab] 캐릭터 ${a?.id} 변환 실패`, e);
     }
