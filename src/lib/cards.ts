@@ -15,7 +15,7 @@ export interface CardModel {
   path: { id: string; name: string; icon: string };
   icon: string; // 둥근 아이콘 (파티 편집기용)
   preview: string;
-  lightCone: { name: string; rank: number } | null;
+  lightCone: { id: string; name: string; rank: number } | null;
   sets: string[]; // "세트명 4" 형식
   showcased: boolean;
   key: { crit: string; spd: string }; // 목록에서 바로 보는 핵심 수치
@@ -46,7 +46,9 @@ export function toCardModel(c: Character, lang: Lang = "ko", reco?: number[]): C
     path: { id: c.path.id, name: c.path.name, icon: c.path.icon },
     icon: c.icon,
     preview: c.preview,
-    lightCone: c.light_cone ? { name: c.light_cone.name, rank: c.light_cone.rank } : null,
+    lightCone: c.light_cone
+      ? { id: c.light_cone.id, name: c.light_cone.name, rank: c.light_cone.rank }
+      : null,
     sets: setSummary(c),
     showcased: c.source !== "hoyolab",
     key: {

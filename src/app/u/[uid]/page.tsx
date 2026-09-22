@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import EndgameSection from "@/components/EndgameSection";
+import HistorySection from "@/components/HistorySection";
 import ErrorBox from "@/components/ErrorBox";
 import GameImage from "@/components/GameImage";
 import Collapsible from "@/components/Collapsible";
@@ -12,6 +13,7 @@ import { SectionTitle } from "@/components/Badges";
 import { toCardModel } from "@/lib/cards";
 import { cookieName, verifyToken } from "@/lib/claim";
 import { getEndgame } from "@/lib/endgame";
+import { getHistory } from "@/lib/history";
 import { getReco } from "@/lib/reco";
 import { fmt, getDict, LANGS } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
@@ -68,6 +70,8 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   const parties = partyFile?.parties ?? [];
   const reco = await getReco();
   const cards = characters.map((c) => toCardModel(c, lang, reco[c.id]));
+  // 전적을 온전히 받았을 때만 기준점을 잡는다 (전시 8명으로 기준을 잡으면 나중에 다 "새로 추가" 가 된다)
+  const history = await getHistory(uid, cards, hoyolab.status === "ok");
 
   const dataTime = hoyolab.fetchedAt
     ? new Date(hoyolab.fetchedAt).toLocaleString(LANGS[lang].locale, {
@@ -200,6 +204,9 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           </Collapsible>
         )}
       </section>
+
+      {/* 기준점 이후 달라진 점 */}
+      <HistorySection uid={uid} history={history} lang={lang} />
 
       {/* 엔드 콘텐츠 기록 — 실제로 클리어한 편성·사이클 */}
       <EndgameSection uid={uid} records={endgame.records} fetchedAt={endgame.fetchedAt} lang={lang} />
