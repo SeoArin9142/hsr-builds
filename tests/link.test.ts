@@ -87,7 +87,9 @@ describe("sealLink / openLink — 브라우저에 담는 암호문", () => {
 
   it("한 글자라도 건드리면 열리지 않는다", () => {
     const sealed = link.sealLink(acc);
-    const broken = sealed.slice(0, -1) + (sealed.endsWith("A") ? "B" : "A");
+    // 마지막 글자는 base64 에서 남는 비트가 있어 바꿔도 같은 바이트가 될 수 있다 — 중간을 건드린다
+    const i = Math.floor(sealed.length / 2);
+    const broken = sealed.slice(0, i) + (sealed[i] === "A" ? "B" : "A") + sealed.slice(i + 1);
     assert.equal(link.openLink(broken), null);
   });
 
