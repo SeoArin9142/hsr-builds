@@ -19,7 +19,8 @@ import { linkedCounts } from "@/lib/usage";
  *
  * 인증: Vercel Cron 이 보내는 Authorization: Bearer $CRON_SECRET,
  *       또는 손으로 부를 때 x-admin-key: $EDIT_ADMIN_KEY.
- * ?test=1 (관리자 키로 부를 때만): 문제가 없어도 웹훅을 한 번 울려 본다 — 알림 설정 확인용.
+ * 웹훅을 울리는 것은 크론이 부를 때와 ?test=1 뿐이다. 관리자 키로 그냥 부르면 결과만 돌려준다
+ * (배포 확인하려고 부른 것이 하루 점검으로 나가 버리지 않게).
  */
 
 export const dynamic = "force-dynamic";
@@ -112,17 +113,20 @@ export async function GET(req: Request) {
     adminLink(),
   ].join("\n");
 
-  // 하루에 한 번만 (KST 날짜 기준). 관리자가 손으로 여러 번 불러도 한 번만 간다.
+  // 알림을 보내는 건 크론과 ?test=1 뿐이다. 관리자 키로 그냥 들여다보는 것은 조용히 결과만 돌려준다
+  // (배포 확인하려고 부른 것이 하루 점검으로 나가 버린 적이 있다).
   const dayKey = `daily:${kstDay()}`;
   let notified = false;
   if (test) {
     // 시험은 하루 한 번 제한에 걸리지 않게 매번 다른 key 로 보낸다
     notified = await alert(`test:${Date.now()}`, `✅ HSR Builds 알림 시험\n${summary}`, 60);
-  } else if (notes.length > 0) {
-    notified = await alert("health", `⚠️ HSR Builds 점검\n${notes.join("\n")}\n${summary}`);
-    await markAlerted(dayKey, 26 * 3600); // 같은 날 요약을 또 보내지 않는다
-  } else {
-    notified = await alert(dayKey, `📊 HSR Builds 하루 점검 (${kstLabel()})\n${summary}`, 26 * 3600);
+  } else if (who === "cron") {
+    if (notes.length > 0) {
+      notified = await alert("health", `⚠️ HSR Builds 점검\n${notes.join("\n")}\n${summary}`);
+      await markAlerted(dayKey, 26 * 3600); // 같은 날 요약을 또 보내지 않는다
+    } else {
+      notified = await alert(dayKey, `📊 HSR Builds 하루 점검 (${kstLabel()})\n${summary}`, 26 * 3600);
+    }
   }
 
   return NextResponse.json({

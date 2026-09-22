@@ -194,7 +194,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             <p>{d.parties_empty_3}</p>
           </div>
         ) : (
-          <Collapsible storageKey="parties" collapsedHeight={360}>
+          <Collapsible storageKey="parties" collapsedHeight={360} defaultOpen={false}>
             <div className="grid gap-4 md:grid-cols-2">
               {parties.map((party) => {
                 const members = Array.from({ length: 4 }, (_, i) =>
