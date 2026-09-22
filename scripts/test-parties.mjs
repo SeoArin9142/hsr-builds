@@ -17,7 +17,13 @@ const before = await j(await fetch(`${base}/api/u/${uid}/parties`));
 console.log("GET parties:", before.status, "parties", before.body.parties?.length);
 
 const claim = await j(await fetch(`${base}/api/u/${uid}/claim`));
-console.log("GET claim:", claim.status, "code", claim.body.code, "verified", claim.body.verified);
+console.log("GET claim:", claim.status, "code", claim.body.code, "verified", claim.body.verified, "nonce cookie:", Boolean(claim.cookie));
+// 다른 브라우저(쿠키 없음)가 같은 UID 로 코드를 받으면 다른 코드여야 한다
+const claim2 = await j(await fetch(`${base}/api/u/${uid}/claim`));
+console.log("GET claim (other browser):", claim2.body.code, claim2.body.code !== claim.body.code ? "≠ (good)" : "SAME (bad)");
+// nonce 쿠키 없이 서명 확인을 누르면 거부
+const noNonce = await j(await fetch(`${base}/api/u/${uid}/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }));
+console.log("POST claim without nonce:", noNonce.status, noNonce.body.message);
 
 const denied = await fetch(`${base}/api/u/${uid}/parties`, {
   method: "PUT",

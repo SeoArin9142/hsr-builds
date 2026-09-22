@@ -8,7 +8,7 @@ import PartyEditor from "@/components/PartyEditor";
 import RosterGrid from "@/components/RosterGrid";
 import { SectionTitle } from "@/components/Badges";
 import { toCardModel } from "@/lib/cards";
-import { claimCode, cookieName, verifyToken } from "@/lib/claim";
+import { cookieName, verifyToken } from "@/lib/claim";
 import { fmt, getDict, LANGS } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 import { resolveMember } from "@/lib/members";
@@ -152,13 +152,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           {d.parties_title}
         </SectionTitle>
         <div className="mb-3">
-          <PartyEditor
-            uid={uid}
-            initialParties={parties}
-            cards={cards}
-            initialVerified={canEdit}
-            code={claimCode(uid)}
-          />
+          <PartyEditor uid={uid} initialParties={parties} cards={cards} initialVerified={canEdit} />
         </div>
         {parties.length === 0 ? (
           <div className="space-y-1 rounded-lg border border-dashed border-card-border bg-card/50 p-5 text-sm text-muted">

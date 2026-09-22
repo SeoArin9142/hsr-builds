@@ -22,18 +22,17 @@ export default function PartyEditor({
   initialParties,
   cards,
   initialVerified,
-  code,
 }: {
   uid: string;
   initialParties: Party[];
   cards: CardModel[];
   initialVerified: boolean;
-  code: string;
 }) {
   const { d } = useLang();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [verified, setVerified] = useState(initialVerified);
+  const [code, setCode] = useState<string | null>(null); // 이 브라우저 전용 확인 코드
   const [parties, setParties] = useState<Draft[]>(() => toDrafts(initialParties));
   const [target, setTarget] = useState<{ party: number; slot: number } | null>(null);
   const [search, setSearch] = useState("");
@@ -53,6 +52,16 @@ export default function PartyEditor({
     setTarget(null);
     setMessage(null);
     setOpen(true);
+    if (!verified && !code) {
+      // nonce 쿠키를 받고 그 브라우저의 코드를 표시
+      fetch(`/api/u/${uid}/claim`)
+        .then((r) => r.json())
+        .then((b: { code?: string; verified?: boolean }) => {
+          if (b.code) setCode(b.code);
+          if (b.verified) setVerified(true);
+        })
+        .catch(() => {});
+    }
   }
 
   async function claim(withAdmin: boolean) {
@@ -158,10 +167,14 @@ export default function PartyEditor({
           <ol className="list-decimal space-y-1 pl-5 text-foreground/85">
             <li>
               {d.editor_step1a}{" "}
-              <code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-gold">{code}</code>{" "}
+              <code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-gold">
+                {code ?? d.editor_code_loading}
+              </code>{" "}
               {d.editor_step1b}
               <br />
               {d.editor_step1c}
+              <br />
+              <span className="text-muted">{d.editor_code_note}</span>
             </li>
             <li>
               {d.editor_step2a}
