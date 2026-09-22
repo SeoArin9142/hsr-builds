@@ -6,12 +6,13 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-2xl py-12">
       <h1 className="text-3xl font-bold tracking-tight">
-        UID 하나로 보는 <span className="text-gold">스타레일 빌드</span>
+        UID 하나로 보는 <span className="text-gold">스타레일 프로필</span>
       </h1>
-      <p className="mt-3 text-muted">
-        보유 캐릭터의 최종 스탯·광추·유물·행적을 한 화면에서 확인합니다. 고수 유저나 AI 에게
-        UID 만 주면 같은 화면을 보고 세팅을 평가할 수 있습니다. 로그인은 필요 없습니다.
-      </p>
+      <div className="mt-3 space-y-1 text-muted">
+        <p>보유 캐릭터의 최종 스탯·광추·유물·행적을 한 화면에서 확인합니다.</p>
+        <p>고수 유저나 AI 에게 UID 만 주면 같은 화면을 보고 세팅을 평가할 수 있습니다.</p>
+        <p>로그인은 필요 없습니다.</p>
+      </div>
 
       <div className="mt-8">
         <UidSearch size="lg" />
@@ -28,26 +29,36 @@ export default function Home() {
         <h2 className="font-bold">어디까지 보이나</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-foreground/85">
           <li>
-            기본은 인게임 <b>캐릭터 전시</b>에 올린 최대 8명 — 프로필 → 캐릭터 전시에서{" "}
-            <b>상세 정보 표시</b>도 켜야 스탯·유물이 나온다
+            기본은 인게임 <b>캐릭터 전시</b>에 올린 최대 8명.
+            <br />
+            프로필 → 캐릭터 전시에서 <b>상세 정보 표시</b>도 켜야 스탯·유물이 나온다.
           </li>
           <li>
             <b>보유 캐릭터 전부</b>를 보이게 하려면 계정 주인이{" "}
             <Link href="/link" className="text-accent hover:underline">
               내 계정 연결
             </Link>{" "}
-            을 한 번 — 그 뒤엔 누가 열어도(AI 포함) 전체가 보인다. HoYoLAB 이 남에게는 전체를 안 보여 주기
-            때문에 이 방법뿐이다
+            을 한 번.
+            <br />
+            그 뒤엔 누가 열어도(AI 포함) 전체가 보인다.
+            <br />
+            HoYoLAB 이 남에게는 전체를 안 보여 주기 때문에 이 방법뿐이다.
           </li>
-          <li>반영까지 몇 분 걸릴 수 있다 (게임 서버·API 캐시)</li>
-          <li>파티 편성은 게임이 외부에 주지 않아서, 계정 주인이 [파티 편집] 으로 직접 만든다 (최대 12개)</li>
+          <li>반영까지 몇 분 걸릴 수 있다 (게임 서버·API 캐시).</li>
+          <li>
+            파티 편성은 게임이 외부에 주지 않는다.
+            <br />
+            계정 주인이 [파티 편집] 으로 직접 만든다 (최대 12개).
+          </li>
         </ul>
         <h2 className="mt-5 font-bold">AI 에게 넘길 때</h2>
-        <p className="mt-2 text-foreground/85">
-          <code className="rounded bg-background/60 px-1">/api/u/UID/md</code> 주소를 주면 캐릭터
-          전체가 마크다운 표로 나옵니다. 캐릭터 상세 페이지의 &quot;AI 평가용 텍스트 복사&quot;
-          버튼으로 한 명만 복사할 수도 있습니다.
-        </p>
+        <div className="mt-2 space-y-1 text-foreground/85">
+          <p>
+            <code className="rounded bg-background/60 px-1">/api/u/UID/md</code> 주소를 주면 캐릭터 전체가
+            마크다운 표로 나옵니다.
+          </p>
+          <p>캐릭터 상세 페이지의 &quot;AI 평가용 텍스트 복사&quot; 버튼으로 한 명만 복사할 수도 있습니다.</p>
+        </div>
       </section>
     </div>
   );

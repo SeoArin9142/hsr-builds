@@ -11,11 +11,11 @@ const notoKr = Noto_Sans_KR({
 
 export const metadata: Metadata = {
   title: {
-    default: "HSR Builds — 붕괴: 스타레일 파티·빌드 뷰어",
+    default: "HSR Builds — UID 하나로 보는 스타레일 프로필",
     template: "%s | HSR Builds",
   },
   description:
-    "붕괴: 스타레일 UID 로 파티 편성과 캐릭터 상세 스탯·광추·유물을 확인합니다.",
+    "붕괴: 스타레일 UID 하나로 파티 편성과 캐릭터 상세 스탯·광추·유물을 확인합니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

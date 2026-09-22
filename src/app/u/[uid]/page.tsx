@@ -109,20 +109,28 @@ export default async function ProfilePage({ params, searchParams }: Props) {
       </section>
 
       {!player.is_display && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
-          이 계정은 인게임 <b>상세 정보 표시</b>가 꺼져 있어 전시 캐릭터의 스탯·유물이 비어
-          옵니다. 프로필 → 캐릭터 전시에서 켜 주세요.
+        <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          <p>
+            이 계정은 인게임 <b>상세 정보 표시</b>가 꺼져 있어 전시 캐릭터의 스탯·유물이 비어 옵니다.
+          </p>
+          <p>프로필 → 캐릭터 전시에서 켜 주세요.</p>
         </div>
       )}
 
       {(hoyolab.status === "unlinked" || hoyolab.status === "disabled") && (
-        <div className="rounded-lg border border-card-border bg-card/60 p-4 text-sm text-foreground/85">
-          지금은 인게임 <b>캐릭터 전시</b>에 올린 캐릭터만 보입니다. 이 UID 의 주인이라면{" "}
-          <a href="/link" className="text-accent hover:underline">
-            내 계정 연결
-          </a>{" "}
-          을 한 번 하면 보유 캐릭터 전체(스탯·유물 포함)가 이 페이지에 보이고, 방문자와 AI 도 같은 걸
-          봅니다. (HoYoLAB 은 남에게는 전체 캐릭터를 보여 주지 않습니다.)
+        <div className="space-y-1 rounded-lg border border-card-border bg-card/60 p-4 text-sm text-foreground/85">
+          <p>
+            지금은 인게임 <b>캐릭터 전시</b>에 올린 캐릭터만 보입니다.
+          </p>
+          <p>
+            이 UID 의 주인이라면{" "}
+            <a href="/link" className="text-accent hover:underline">
+              내 계정 연결
+            </a>{" "}
+            을 한 번 하면 보유 캐릭터 전체(스탯·유물 포함)가 이 페이지에 보입니다.
+          </p>
+          <p>방문자와 AI 도 같은 걸 봅니다.</p>
+          <p className="text-muted">HoYoLAB 은 남에게는 전체 캐릭터를 보여 주지 않습니다.</p>
         </div>
       )}
       {hoyolab.status !== "ok" && hoyolab.status !== "disabled" && hoyolab.status !== "unlinked" && (
@@ -148,10 +156,11 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           />
         </div>
         {parties.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-card-border bg-card/50 p-5 text-sm text-muted">
-            아직 기록된 파티가 없습니다. 계정 주인이라면 [파티 편집] 으로 최대 {MAX_PARTIES}개까지 만들 수
-            있습니다. (파티 편성은 게임 API 가 제공하지 않아 직접 기록해야 합니다.)
-          </p>
+          <div className="space-y-1 rounded-lg border border-dashed border-card-border bg-card/50 p-5 text-sm text-muted">
+            <p>아직 기록된 파티가 없습니다.</p>
+            <p>계정 주인이라면 [파티 편집] 으로 최대 {MAX_PARTIES}개까지 만들 수 있습니다.</p>
+            <p>파티 편성은 게임 API 가 제공하지 않아 직접 기록해야 합니다.</p>
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {parties.map((party) => {
@@ -185,9 +194,10 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           캐릭터
         </SectionTitle>
         {cards.length === 0 ? (
-          <p className="rounded-lg border border-card-border bg-card p-6 text-center text-sm text-muted">
-            보여 줄 캐릭터가 없습니다. 인게임 캐릭터 전시에 올려 주세요.
-          </p>
+          <div className="space-y-1 rounded-lg border border-card-border bg-card p-6 text-center text-sm text-muted">
+            <p>보여 줄 캐릭터가 없습니다.</p>
+            <p>인게임 캐릭터 전시에 올려 주세요.</p>
+          </div>
         ) : (
           <RosterGrid uid={uid} cards={cards} />
         )}

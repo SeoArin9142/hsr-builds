@@ -41,9 +41,9 @@ export default async function CharacterPage({ params }: Props) {
     const why =
       hoyolab.status === "ok"
         ? "이 계정이 보유하지 않았거나 아직 반영되지 않은 캐릭터입니다."
-        : hoyolab.status === "disabled"
-          ? "스탯·유물은 인게임 캐릭터 전시에 올린 캐릭터만 볼 수 있습니다. 전시에 올리고 몇 분 뒤 다시 조회해 주세요."
-          : `${hoyolab.message ?? ""} 전시에 올리면 볼 수 있습니다.`;
+        : hoyolab.status === "disabled" || hoyolab.status === "unlinked"
+          ? "지금은 인게임 캐릭터 전시에 올린 캐릭터만 볼 수 있습니다.\n전시에 올리고 몇 분 뒤 다시 조회하거나, 계정 주인이 [내 계정 연결] 을 하면 전체가 보입니다."
+          : `${hoyolab.message ?? ""}\n전시에 올리면 볼 수 있습니다.`;
     return <ErrorBox title={`${name} 의 상세 정보가 없습니다`} message={why} uid={uid} />;
   }
 

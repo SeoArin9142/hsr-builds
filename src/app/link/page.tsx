@@ -14,12 +14,16 @@ export default async function LinkPage() {
     <div className="mx-auto max-w-2xl space-y-8 py-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">내 계정 연결</h1>
-        <p className="mt-2 text-sm text-muted">
-          <b className="text-foreground">내 UID 의 보유 캐릭터 전체(스탯·유물 포함)를 이 사이트에 보이게 하는 방법</b>입니다.
-          HoYoLAB 은 남에게는 캐릭터 전체를 보여 주지 않기 때문에, 본인이 한 번 연결해야 합니다. 연결하면
-          사이트가 내 전체 캐릭터를 받아 두고, 내 UID 를 여는 방문자와 AI 가 그걸 봅니다. 내가 다시
-          들어올 때마다 최신으로 갱신되고, 연결하지 않으면 인게임 전시 캐릭터(최대 8명)만 보입니다.
-        </p>
+        <div className="mt-2 space-y-1 text-sm text-muted">
+          <p>
+            <b className="text-foreground">내 UID 의 보유 캐릭터 전체(스탯·유물 포함)를 이 사이트에 보이게 하는 방법</b>
+            입니다.
+          </p>
+          <p>HoYoLAB 은 남에게는 캐릭터 전체를 보여 주지 않기 때문에, 본인이 한 번 연결해야 합니다.</p>
+          <p>연결하면 사이트가 내 전체 캐릭터를 받아 두고, 내 UID 를 여는 방문자와 AI 가 그걸 봅니다.</p>
+          <p>내가 다시 들어올 때마다 최신으로 갱신됩니다.</p>
+          <p>연결하지 않으면 인게임 전시 캐릭터(최대 8명)만 보입니다.</p>
+        </div>
       </div>
 
       <LinkAccount initial={initial} />
@@ -62,12 +66,16 @@ export default async function LinkPage() {
         <div>
           <h2 className="font-bold">보관 방식</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-foreground/85">
-            <li>쿠키는 서버에 저장하지 않습니다. 서버 키로 암호화해 이 브라우저의 쿠키에만 둡니다.</li>
+            <li>쿠키는 서버에 저장하지 않습니다.</li>
+            <li>서버 키로 암호화해 이 브라우저의 쿠키에만 둡니다.</li>
+            <li>조회할 때만 잠깐 풀어서 HoYoLAB 에 보냅니다.</li>
             <li>
-              조회할 때만 잠깐 풀어서 HoYoLAB 에 보냅니다. 받아 온 <b>캐릭터 목록</b>은 7일간 서버에 보관되어
-              내 UID 를 여는 다른 사람에게도 보입니다(그게 목적이니까요). 내가 들어오면 1시간 단위로 갱신됩니다.
+              받아 온 <b>캐릭터 목록</b>은 7일간 서버에 보관되어 내 UID 를 여는 다른 사람에게도 보입니다
+              (그게 목적이니까요).
             </li>
-            <li>30일 뒤 자동 해제되며, 언제든 [연결 해제] 로 지울 수 있습니다. HoYoLAB 에서 로그아웃하면 쿠키가 무효가 됩니다.</li>
+            <li>내가 들어오면 1시간 단위로 갱신됩니다.</li>
+            <li>30일 뒤 자동 해제되며, 언제든 [연결 해제] 로 지울 수 있습니다.</li>
+            <li>HoYoLAB 에서 로그아웃하면 쿠키가 무효가 됩니다.</li>
             <li>폰만 쓰는 경우엔 쿠키를 꺼낼 방법이 없어 연결이 어렵습니다 — 연결 없이 쓰셔도 됩니다.</li>
           </ul>
         </div>

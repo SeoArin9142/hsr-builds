@@ -156,10 +156,20 @@ export default function PartyEditor({
             <li>
               게임에서 프로필 → <b>서명</b>에{" "}
               <code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-gold">{code}</code>{" "}
-              를 넣고 저장합니다 (다른 글과 섞여 있어도 됩니다).
+              를 넣고 저장합니다.
+              <br />
+              다른 글과 섞여 있어도 됩니다.
             </li>
-            <li>아래 [서명 확인] 을 누릅니다. 반영까지 몇 분 걸릴 수 있습니다.</li>
-            <li>확인이 끝나면 서명은 원래대로 돌려도 됩니다. 이 브라우저에서 30일간 편집할 수 있습니다.</li>
+            <li>
+              아래 [서명 확인] 을 누릅니다.
+              <br />
+              반영까지 몇 분 걸릴 수 있습니다.
+            </li>
+            <li>
+              확인이 끝나면 서명은 원래대로 돌려도 됩니다.
+              <br />
+              이 브라우저에서 30일간 편집할 수 있습니다.
+            </li>
           </ol>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => claim(false)} disabled={busy} className={primary}>

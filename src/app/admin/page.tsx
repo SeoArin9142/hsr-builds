@@ -99,11 +99,16 @@ export default function AdminPage() {
               )}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-muted">
-            쿠키는 <b>자기 계정에 연동된 UID 의 전체 조회</b>에만 쓰입니다 — HoYoLAB 은 남의 계정엔 캐릭터 8명·스탯
-            없음만 보여 주므로 부계정을 늘려도 남의 UID 는 더 보이지 않습니다. 사이트 주인 계정을 여러 개 쓰려면
-            <code>HOYOLAB_COOKIES</code> 에 <code>ltuid:ltoken</code> 을 쉼표로 이어 넣고 재배포.
-          </p>
+          <div className="mt-3 space-y-1 text-xs text-muted">
+            <p>
+              쿠키는 <b>자기 계정에 연동된 UID 의 전체 조회</b>에만 쓰입니다.
+            </p>
+            <p>HoYoLAB 은 남의 계정엔 캐릭터 8명·스탯 없음만 보여 주므로, 부계정을 늘려도 남의 UID 는 더 보이지 않습니다.</p>
+            <p>
+              사이트 주인 계정을 여러 개 쓰려면 <code>HOYOLAB_COOKIES</code> 에 <code>ltuid:ltoken</code> 을 쉼표로
+              이어 넣고 재배포합니다.
+            </p>
+          </div>
         </div>
       )}
     </div>

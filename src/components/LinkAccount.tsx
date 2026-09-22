@@ -59,10 +59,11 @@ export default function LinkAccount({ initial }: { initial: Status }) {
           HoYoLAB {status.nickname ? <b>{status.nickname}</b> : "계정"} · 스타레일 UID{" "}
           {status.uids && status.uids.length > 0 ? status.uids.join(", ") : "(연동된 캐릭터 없음)"}
         </p>
-        <p className="mt-1 text-xs text-muted">
-          이 브라우저에서 하는 조회는 이 계정의 하루 30개 UID 한도로 나갑니다. 연결 시각:{" "}
-          {status.at ? new Date(status.at).toLocaleString("ko-KR") : "-"} · 30일 뒤 자동 해제
-        </p>
+        <div className="mt-1 space-y-0.5 text-xs text-muted">
+          <p>내 UID 페이지를 열면 이 계정으로 전체 캐릭터를 새로 받아 옵니다.</p>
+          <p>연결 시각: {status.at ? new Date(status.at).toLocaleString("ko-KR") : "-"}</p>
+          <p>30일 뒤 자동 해제됩니다.</p>
+        </div>
         <button type="button" onClick={unlink} disabled={busy} className={`${btn} mt-3`}>
           연결 해제
         </button>
@@ -75,7 +76,9 @@ export default function LinkAccount({ initial }: { initial: Status }) {
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={'여기에 붙여넣기 — Cookie-Editor 의 Export 결과(JSON), cookies.txt 내용, 개발자 도구에서 복사한 Cookie 헤더, 또는 "ltuid_v2=…; ltoken_v2=…" 어떤 형식이든 됩니다.'}
+        placeholder={
+          "여기에 붙여넣기.\n어떤 형식이든 됩니다:\n- Cookie-Editor 의 Export 결과 (JSON)\n- cookies.txt 내용\n- 개발자 도구에서 복사한 Cookie 헤더\n- ltuid_v2=…; ltoken_v2=…"
+        }
         rows={6}
         spellCheck={false}
         className="w-full rounded-md border border-card-border bg-background/60 p-3 font-mono text-xs outline-none placeholder:font-sans placeholder:text-muted/70 focus:border-accent"
@@ -85,7 +88,7 @@ export default function LinkAccount({ initial }: { initial: Status }) {
           {busy ? "확인 중…" : "연결"}
         </button>
         <span className="text-xs text-muted">
-          붙여넣은 내용에서 <code>ltuid_v2</code>·<code>ltoken_v2</code> 두 값만 쓰고, 나머지는 버립니다.
+          붙여넣은 내용에서 <code>ltuid_v2</code>·<code>ltoken_v2</code> 두 값만 쓰고 나머지는 버립니다.
         </span>
       </div>
       {error && <p className="text-sm text-amber-300">{error}</p>}
