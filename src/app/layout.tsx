@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import { LangProvider } from "@/components/LangProvider";
 import SiteHeader from "@/components/SiteHeader";
 import { getDict } from "@/lib/i18n";
@@ -17,11 +18,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const lang = await getLang();
   const d = getDict(lang);
   return {
+    metadataBase: new URL("https://hsr-builds.vercel.app"),
     title: {
       default: `HSR Builds — ${d.home_title1} ${d.home_title2}`,
       template: "%s | HSR Builds",
     },
     description: `${d.home_intro1} ${d.home_intro2}`,
+    openGraph: { siteName: "HSR Builds", type: "website" },
+    twitter: { card: "summary_large_image" },
   };
 }
 
@@ -41,6 +45,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 {d.footer_feedback}
               </Link>
               <span className="mx-2">·</span>
+              <Link href="/privacy" className="hover:text-foreground">
+                {d.footer_privacy}
+              </Link>
+              <span className="mx-2">·</span>
               <a
                 href="https://github.com/SeoArin9142/hsr-builds"
                 target="_blank"
@@ -51,6 +59,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               </a>
             </p>
           </footer>
+          <Analytics />
         </LangProvider>
       </body>
     </html>

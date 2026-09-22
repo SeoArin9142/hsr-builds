@@ -114,6 +114,22 @@ export default function AdminPage() {
       )}
       {status && (
         <div className="rounded-xl border border-card-border bg-card p-5 text-sm">
+          <h2 className="font-bold">파티 백업</h2>
+          <p className="mt-2 text-muted">
+            Upstash 무료 티어는 백업이 없으니 가끔 내려받아 두세요. 복원은 편집기에서 다시 만들거나, 파일 내용을{" "}
+            <code>PUT /api/u/UID/parties</code> 로 보내면 됩니다.
+          </p>
+          <a
+            href="/api/u/800133616/parties"
+            download="parties-800133616.json"
+            className="mt-2 inline-block rounded-md border border-card-border bg-background/50 px-3 py-1.5 text-xs font-medium hover:border-accent/70"
+          >
+            내 파티 JSON 내려받기
+          </a>
+        </div>
+      )}
+      {status && (
+        <div className="rounded-xl border border-card-border bg-card p-5 text-sm">
           <h2 className="font-bold">최근 문의 ({status.feedback.length})</h2>
           {status.feedback.length === 0 ? (
             <p className="mt-2 text-muted">아직 없습니다.</p>

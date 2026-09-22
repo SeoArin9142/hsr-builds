@@ -29,7 +29,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const result = await getShowcase(uid, lang);
   if (!result.ok) return { title: `UID ${uid}` };
   const p = result.data.player;
-  return { title: `${p.nickname} (UID ${uid})` };
+  const d = getDict(lang);
+  const title = `${p.nickname} (UID ${uid})`;
+  const description = `${fmt(d.profile_trailblaze, { n: p.level })} · ${fmt(d.chars_source_showcase, { m: result.data.characters.length })} — ${d.home_intro1}`;
+  return { title, description, openGraph: { title, description } };
 }
 
 export default async function ProfilePage({ params, searchParams }: Props) {

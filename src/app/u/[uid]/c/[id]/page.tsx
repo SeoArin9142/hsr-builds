@@ -25,7 +25,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const [showcase, index] = await Promise.all([getShowcase(uid, lang), getGameIndex(lang)]);
   if (!showcase.ok) return { title: `UID ${uid}` };
   const name = index.characters[id]?.name ?? `#${id}`;
-  return { title: `${name} — ${showcase.data.player.nickname}` };
+  const d = getDict(lang);
+  const title = `${name} — ${showcase.data.player.nickname}`;
+  const description = `${d.char_stats} · ${d.char_lightcone} · ${d.char_relics} · ${d.char_traces} (UID ${uid})`;
+  return { title, description, openGraph: { title, description } };
 }
 
 export default async function CharacterPage({ params }: Props) {
