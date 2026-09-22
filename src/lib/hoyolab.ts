@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { gunzipSync, gzipSync } from "node:zlib";
+import { getKV, kvBackend, type KV } from "./kvstore";
 import type { GameIndex } from "./starrailres";
 import type {
   Character,
@@ -13,14 +15,15 @@ import type {
 
 /**
  * HoYoLAB 전적(Battle Chronicle) 의 캐릭터 목록.
- * 서버에 둔 사이트 주인의 쿠키(HOYOLAB_LTUID_V2 / HOYOLAB_LTOKEN_V2)로 아무 UID 나 조회한다.
- * 상대가 HoYoLAB 에서 전적을 비공개로 두면 안 나오고, 쿠키 하나당 하루 30개 UID 까지다.
- * 응답은 Mihomo 와 같은 Character 모양으로 바꿔서 화면 컴포넌트를 그대로 쓴다.
+ * 서버에 둔 사이트 쿠키 풀(HOYOLAB_COOKIES / HOYOLAB_LTUID_V2+LTOKEN_V2) 또는 방문자가
+ * [내 계정 연결]로 준 자기 쿠키로 아무 UID 나 조회한다.
+ * 상대가 HoYoLAB 에서 전적을 비공개로 두면 안 나오고, 쿠키(계정) 하나당 하루 30개 UID 까지다.
+ * 결과는 24시간 캐시(Redis, 없으면 메모리)하고, Mihomo 와 같은 Character 모양으로 바꿔서
+ * 화면 컴포넌트를 그대로 쓴다.
  */
 
 const API = "https://bbs-api-os.hoyolab.com/game_record/hkrpg/api/avatar/info";
 const DS_SALT = "6s25p5ox5y14umn1p61aqyyvbvvl3lrt"; // HoYoLAB 웹 game_record 용 (공개된 값)
-const TTL_MS = 10 * 60 * 1000;
 
 // UID 첫 자리 → 서버. 1~5 는 중국 서버라 이 API 로는 안 된다.
 const SERVER: Record<string, string> = {
@@ -43,6 +46,9 @@ export interface HoyolabResult {
   status: HoyolabStatus;
   message?: string;
   characters: Character[];
+  fetchedAt?: number; // HoYoLAB 에서 실제로 가져온 시각 (epoch ms)
+  cached?: boolean; // 24시간 캐시에서 꺼낸 결과인지
+  cookieId?: string; // 어느 쿠키로 조회했는지 (pool:… / user:…)
 }
 
 /* ---------- 응답 타입 (쓰는 부분만) ---------- */
@@ -266,23 +272,13 @@ function pct(v: number): string {
   return `${(Math.floor(v * 1000 + 1e-6) / 10).toFixed(1)}%`;
 }
 
-function ds(): string {
+export function ds(): string {
   const t = Math.floor(Date.now() / 1000);
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let r = "";
   for (let i = 0; i < 6; i++) r += chars[Math.floor(Math.random() * chars.length)];
   const h = createHash("md5").update(`salt=${DS_SALT}&t=${t}&r=${r}`).digest("hex");
   return `${t},${r},${h}`;
-}
-
-function cookie(): { ltuid: string; ltoken: string } | null {
-  const ltuid = process.env.HOYOLAB_LTUID_V2?.trim();
-  const ltoken = process.env.HOYOLAB_LTOKEN_V2?.trim();
-  return ltuid && ltoken ? { ltuid, ltoken } : null;
-}
-
-export function hoyolabEnabled(): boolean {
-  return cookie() !== null;
 }
 
 /* ---------- 변환 ---------- */
@@ -449,14 +445,71 @@ export function toCharacter(a: HoyoAvatar, idx: GameIndex): Character {
   };
 }
 
-/* ---------- 호출 + 캐시 ---------- */
+/* ---------- 쿠키 풀 ---------- */
 
-function mapError(retcode: number, message: string): HoyolabResult {
+/** 조회에 쓰는 HoYoLAB 쿠키 하나. owned = 방문자가 [내 계정 연결]로 준 자기 쿠키 */
+export interface HoyoCookie {
+  id: string;
+  ltuid: string;
+  ltoken: string;
+  owned?: boolean;
+}
+
+/**
+ * 사이트 쿠키 풀. HOYOLAB_COOKIES 에 여러 개("ltuid:ltoken" 을 쉼표나 줄바꿈으로, 또는
+ * "ltuid_v2=..; ltoken_v2=.." 형식) + 예전 방식의 HOYOLAB_LTUID_V2 / HOYOLAB_LTOKEN_V2 한 개.
+ */
+export function poolCookies(): HoyoCookie[] {
+  const list: HoyoCookie[] = [];
+  const push = (ltuid?: string, ltoken?: string) => {
+    if (!ltuid || !ltoken) return;
+    if (list.some((c) => c.ltuid === ltuid)) return;
+    list.push({ id: `pool:${ltuid}`, ltuid: ltuid.trim(), ltoken: ltoken.trim() });
+  };
+  push(process.env.HOYOLAB_LTUID_V2?.trim(), process.env.HOYOLAB_LTOKEN_V2?.trim());
+  for (const part of (process.env.HOYOLAB_COOKIES ?? "").split(/[\n,]+/)) {
+    const p = part.trim();
+    if (!p) continue;
+    const m1 = p.match(/ltuid_v2=(\d+)/);
+    const m2 = p.match(/ltoken_v2=([^;\s]+)/);
+    if (m1 && m2) {
+      push(m1[1], m2[1]);
+      continue;
+    }
+    const i = p.indexOf(":");
+    if (i > 0) push(p.slice(0, i), p.slice(i + 1));
+  }
+  return list;
+}
+
+export function hoyolabEnabled(): boolean {
+  return poolCookies().length > 0;
+}
+
+/** HoYoLAB 의 하루 경계는 서버(UTC+8) 기준으로 본다 */
+function dayKey(now = Date.now()): string {
+  return new Date(now + 8 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+function secondsToDayEnd(now = Date.now()): number {
+  const shifted = now + 8 * 3600 * 1000;
+  const end = Math.ceil(shifted / 86400000) * 86400000;
+  return Math.max(60, Math.floor((end - shifted) / 1000) + 60);
+}
+
+const ROSTER_TTL = 24 * 3600; // 조회 결과 캐시 (초)
+const MEM_TTL_MS = 10 * 60 * 1000; // 프로세스 안 1차 캐시
+
+/* ---------- 호출 ---------- */
+
+function mapError(retcode: number, message: string, owned: boolean): HoyolabResult {
   switch (retcode) {
     case 10101:
       return {
         status: "limit",
-        message: "오늘 HoYoLAB 으로 조회할 수 있는 계정 수(쿠키당 30개)를 넘었습니다. 내일 다시 시도해 주세요.",
+        message: owned
+          ? "연결한 HoYoLAB 계정의 오늘 조회 한도(30개 UID)가 찼습니다. 내일 다시 시도해 주세요."
+          : "오늘 사이트 전체의 HoYoLAB 조회 한도가 찼습니다. 내일 다시 시도하거나 전시 캐릭터를 참고해 주세요.",
         characters: [],
       };
     case 10102:
@@ -469,7 +522,9 @@ function mapError(retcode: number, message: string): HoyolabResult {
     case -100:
       return {
         status: "expired",
-        message: "서버의 HoYoLAB 로그인이 만료되었습니다. 관리자가 쿠키를 갱신해야 합니다.",
+        message: owned
+          ? "연결한 HoYoLAB 쿠키가 만료되었습니다. [내 계정 연결] 에서 다시 연결해 주세요."
+          : "사이트의 HoYoLAB 로그인이 만료되었습니다. 관리자가 쿠키를 갱신해야 합니다.",
         characters: [],
       };
     case 1034:
@@ -483,26 +538,31 @@ function mapError(retcode: number, message: string): HoyolabResult {
   }
 }
 
+/** HoYoLAB 전적 API 공통 헤더 */
+export function headersFor(ck: { ltuid: string; ltoken: string }): Record<string, string> {
+  return {
+    Cookie: `ltuid_v2=${ck.ltuid}; ltoken_v2=${ck.ltoken}`,
+    DS: ds(),
+    "x-rpc-app_version": "1.5.0",
+    "x-rpc-client_type": "5",
+    "x-rpc-language": "ko-kr",
+    Origin: "https://act.hoyolab.com",
+    Referer: "https://act.hoyolab.com/",
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  };
+}
+
 async function fetchRoster(
   uid: string,
   server: string,
-  ck: { ltuid: string; ltoken: string },
+  ck: HoyoCookie,
   idx: GameIndex,
 ): Promise<HoyolabResult> {
   let res: Response;
   try {
     res = await fetch(`${API}?server=${server}&role_id=${uid}&need_wiki=false`, {
-      headers: {
-        Cookie: `ltuid_v2=${ck.ltuid}; ltoken_v2=${ck.ltoken}`,
-        DS: ds(),
-        "x-rpc-app_version": "1.5.0",
-        "x-rpc-client_type": "5",
-        "x-rpc-language": "ko-kr",
-        Origin: "https://act.hoyolab.com",
-        Referer: "https://act.hoyolab.com/",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-      },
+      headers: headersFor(ck),
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
     });
@@ -513,7 +573,7 @@ async function fetchRoster(
     return { status: "error", message: `HoYoLAB HTTP ${res.status}`, characters: [] };
   }
   const body = (await res.json()) as HoyoResponse;
-  if (body.retcode !== 0 || !body.data) return mapError(body.retcode, body.message);
+  if (body.retcode !== 0 || !body.data) return mapError(body.retcode, body.message, !!ck.owned);
   // 한 캐릭터의 데이터가 이상해도 나머지는 보여 준다
   const characters: Character[] = [];
   for (const a of body.data.avatar_list ?? []) {
@@ -526,13 +586,37 @@ async function fetchRoster(
   return { status: "ok", characters };
 }
 
-// 응답이 2MB 를 넘어 Next 데이터 캐시에 못 넣으므로 변환한 결과를 메모리에 10분 둔다
-const cache = new Map<string, { at: number; result: HoyolabResult }>();
+/* ---------- 캐시 + 한도 관리 ---------- */
+
+const mem = new Map<string, { at: number; result: HoyolabResult }>();
 const inflight = new Map<string, Promise<HoyolabResult>>();
 
-export async function getHoyolabRoster(uid: string, idx: GameIndex): Promise<HoyolabResult> {
-  const ck = cookie();
-  if (!ck) return { status: "disabled", characters: [] };
+function pack(characters: Character[]): string {
+  return gzipSync(Buffer.from(JSON.stringify(characters), "utf8")).toString("base64");
+}
+
+function unpack(packed: string): Character[] {
+  return JSON.parse(gunzipSync(Buffer.from(packed, "base64")).toString("utf8")) as Character[];
+}
+
+export interface RosterOptions {
+  viewer?: HoyoCookie | null; // 방문자가 연결한 자기 쿠키 (있으면 이걸 먼저 쓴다)
+  refresh?: boolean; // 캐시를 건너뛰고 새로 조회
+}
+
+/**
+ * 조회 순서: 메모리 캐시 → Redis 캐시(24시간) → HoYoLAB.
+ * HoYoLAB 을 부를 때는 방문자 쿠키 → (같은 UID 를 오늘 이미 쓴 풀 쿠키) → 오늘 덜 쓴 풀 쿠키 순.
+ * 한도 초과(10101)·만료(10001)는 기록해 두고 다른 쿠키로 넘어간다.
+ */
+export async function getHoyolabRoster(
+  uid: string,
+  idx: GameIndex,
+  opts: RosterOptions = {},
+): Promise<HoyolabResult> {
+  const pool = poolCookies();
+  const viewer = opts.viewer ?? null;
+  if (!viewer && pool.length === 0) return { status: "disabled", characters: [] };
   const server = SERVER[uid[0]];
   if (!server) {
     return {
@@ -542,17 +626,151 @@ export async function getHoyolabRoster(uid: string, idx: GameIndex): Promise<Hoy
     };
   }
 
-  const hit = cache.get(uid);
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.result;
-  const pending = inflight.get(uid);
-  if (pending) return pending;
-
-  const p = fetchRoster(uid, server, ck, idx).finally(() => inflight.delete(uid));
-  inflight.set(uid, p);
-  const result = await p;
-  // 성공과 비공개는 캐시(반복 호출 방지). 일시 오류는 다음 요청에서 다시 시도.
-  if (result.status === "ok" || result.status === "private") {
-    cache.set(uid, { at: Date.now(), result });
+  const kv = getKV();
+  if (!opts.refresh) {
+    const hit = mem.get(uid);
+    if (hit && Date.now() - hit.at < MEM_TTL_MS) return hit.result;
+    try {
+      const packed = await kv.get(`hoyo:roster:${uid}`);
+      if (packed) {
+        const { at, data } = JSON.parse(packed) as { at: number; data: string };
+        const result: HoyolabResult = { status: "ok", characters: unpack(data), fetchedAt: at, cached: true };
+        mem.set(uid, { at: Date.now(), result });
+        return result;
+      }
+      // 비공개 기록은 방문자가 자기 쿠키를 연결하지 않았을 때만 재사용 (본인 쿠키면 볼 수 있으므로)
+      if (!viewer) {
+        const priv = await kv.get(`hoyo:private:${uid}`);
+        if (priv) return { ...mapError(10102, "", false), fetchedAt: Number(priv), cached: true };
+      }
+    } catch (e) {
+      console.error("[hoyolab] 캐시 읽기 실패", e);
+    }
   }
-  return result;
+
+  const key = `${uid}:${viewer?.id ?? "pool"}`;
+  const pending = inflight.get(key);
+  if (pending) return pending;
+  const p = fetchWithCookies(uid, server, idx, viewer, pool, kv).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
+/** 쿠키(계정)에 연동된 스타레일 UID 목록. 게임 기록 카드는 한도를 안 쓰므로 하루 캐시. */
+async function ownedUids(ck: HoyoCookie, kv: KV): Promise<string[]> {
+  const key = `hoyo:owned:${ck.id}`;
+  const cached = await kv.get(key).catch(() => null);
+  if (cached) return JSON.parse(cached) as string[];
+  let uids: string[] = [];
+  try {
+    const res = await fetch(
+      `https://bbs-api-os.hoyolab.com/game_record/card/wapi/getGameRecordCard?uid=${ck.ltuid}`,
+      { headers: headersFor(ck), cache: "no-store", signal: AbortSignal.timeout(10000) },
+    );
+    const body = (await res.json()) as {
+      retcode: number;
+      data?: { list?: { game_id: number; game_role_id: string }[] };
+    };
+    if (body.retcode === 0) {
+      uids = (body.data?.list ?? []).filter((r) => r.game_id === 6).map((r) => String(r.game_role_id));
+    }
+  } catch {
+    // 실패하면 빈 목록으로 두고 다음에 다시 시도
+    return [];
+  }
+  await kv.set(key, JSON.stringify(uids), 86400).catch(() => {});
+  return uids;
+}
+
+async function fetchWithCookies(
+  uid: string,
+  server: string,
+  idx: GameIndex,
+  viewer: HoyoCookie | null,
+  pool: HoyoCookie[],
+  kv: KV,
+): Promise<HoyolabResult> {
+  const day = dayKey();
+  const candidates: HoyoCookie[] = [];
+  if (viewer) candidates.push(viewer);
+  // 1) 이 UID 의 주인 계정 쿠키가 풀에 있으면 그게 먼저 (비공개여도 본인은 볼 수 있다)
+  // 2) 오늘 이 UID 를 이미 조회한 풀 쿠키 (같은 UID 는 다시 세지 않는다)
+  // 3) 오늘 덜 쓴 순
+  const sticky = await kv.get(`hoyo:sticky:${uid}`).catch(() => null);
+  const rank = new Map<string, number>();
+  for (const c of pool) {
+    const owned = await ownedUids(c, kv);
+    const usage = await kv.scard(`hoyo:day:${c.id}:${day}`).catch(() => 0);
+    rank.set(c.id, owned.includes(uid) ? -2000 : c.id === sticky ? -1000 : usage);
+  }
+  candidates.push(...[...pool].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)));
+
+  let last: HoyolabResult | null = null;
+  for (const ck of candidates) {
+    if (await kv.get(`hoyo:dead:${ck.id}`).catch(() => null)) continue;
+    if (await kv.get(`hoyo:exhausted:${ck.id}:${day}`).catch(() => null)) continue;
+
+    const r = await fetchRoster(uid, server, ck, idx);
+    last = r;
+    if (r.status === "ok" || r.status === "private") {
+      // 이 쿠키의 오늘 사용 기록 + UID→쿠키 고정
+      await kv.sadd(`hoyo:day:${ck.id}:${day}`, uid, 2 * 86400).catch(() => {});
+      if (!ck.owned) await kv.set(`hoyo:sticky:${uid}`, ck.id, 86400).catch(() => {});
+    }
+    if (r.status === "ok") {
+      const at = Date.now();
+      const result: HoyolabResult = { ...r, fetchedAt: at, cookieId: ck.id };
+      mem.set(uid, { at, result });
+      kv.set(`hoyo:roster:${uid}`, JSON.stringify({ at, data: pack(r.characters) }), ROSTER_TTL).catch((e) =>
+        console.error("[hoyolab] 캐시 쓰기 실패", e),
+      );
+      return result;
+    }
+    if (r.status === "private") {
+      await kv.set(`hoyo:private:${uid}`, String(Date.now()), ROSTER_TTL).catch(() => {});
+      return { ...r, fetchedAt: Date.now() };
+    }
+    if (r.status === "limit") {
+      await kv.set(`hoyo:exhausted:${ck.id}:${day}`, "1", secondsToDayEnd()).catch(() => {});
+      continue;
+    }
+    if (r.status === "expired") {
+      await kv.set(`hoyo:dead:${ck.id}`, "1", 12 * 3600).catch(() => {});
+      continue;
+    }
+    return r; // 캡차·네트워크 오류: 다른 쿠키로 바꿔도 소용없다
+  }
+
+  if (last) return last;
+  return {
+    status: "limit",
+    message: "오늘 사이트 전체의 HoYoLAB 조회 한도가 찼습니다. 내일 다시 시도하거나 전시 캐릭터를 참고해 주세요.",
+    characters: [],
+  };
+}
+
+/* ---------- 관리 화면용 상태 ---------- */
+
+export interface CookieStatus {
+  id: string;
+  ltuidMasked: string;
+  today: number; // 오늘 조회한 서로 다른 UID 수
+  exhausted: boolean;
+  dead: boolean;
+}
+
+export async function poolStatus(): Promise<{ day: string; backend: string; cookies: CookieStatus[] }> {
+  const kv = getKV();
+  const day = dayKey();
+  const cookies: CookieStatus[] = [];
+  for (const c of poolCookies()) {
+    cookies.push({
+      id: c.id,
+      ltuidMasked: c.ltuid.slice(0, 3) + "****",
+      today: await kv.scard(`hoyo:day:${c.id}:${day}`).catch(() => 0),
+      exhausted: !!(await kv.get(`hoyo:exhausted:${c.id}:${day}`).catch(() => null)),
+      dead: !!(await kv.get(`hoyo:dead:${c.id}`).catch(() => null)),
+    });
+  }
+  return { day, backend: kvBackend(), cookies };
 }

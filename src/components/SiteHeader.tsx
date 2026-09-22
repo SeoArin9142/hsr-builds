@@ -13,6 +13,9 @@ export default function SiteHeader() {
           <Link href={`/u/${OWNER_UID}`} className="text-muted hover:text-foreground">
             내 프로필
           </Link>
+          <Link href="/link" className="text-muted hover:text-foreground">
+            내 계정 연결
+          </Link>
         </nav>
         <UidSearch />
       </div>

@@ -1,10 +1,11 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Party, PartyFile } from "./parties";
+import { redisConfigured, redisGet, redisSet } from "./redis";
 
 /**
  * 파티 편성 저장소.
- *  - UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN (또는 Vercel 연동의 KV_REST_API_URL / KV_REST_API_TOKEN) 이 있으면 Upstash Redis
+ *  - Redis 가 설정돼 있으면 Upstash Redis (Vercel 등 파일을 못 쓰는 곳) — redis.ts 참고
  *  - 없으면 data/parties/<uid>.json (로컬·VPS)
  */
 
@@ -17,37 +18,12 @@ function fileOf(uid: string): string {
   return path.join(process.cwd(), "data", "parties", `${uid}.json`);
 }
 
-// Vercel 의 Upstash 연동은 KV_REST_API_* 이름으로 넣어 주므로 둘 다 받는다
-function redis(): { url: string; token: string } | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  return url && token ? { url, token } : null;
-}
-
-async function redisCmd(cmd: unknown[]): Promise<unknown> {
-  const r = redis();
-  if (!r) throw new Error("redis not configured");
-  const res = await fetch(r.url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${r.token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(cmd),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`redis http ${res.status}`);
-  const body = (await res.json()) as { result?: unknown; error?: string };
-  if (body.error) throw new Error(body.error);
-  return body.result;
-}
-
 export async function readParties(uid: string): Promise<PartyFile | null> {
   if (!/^\d{9,10}$/.test(uid)) return null;
   try {
-    let raw: string | null;
-    if (redis()) {
-      raw = (await redisCmd(["GET", `parties:${uid}`])) as string | null;
-    } else {
-      raw = await fs.readFile(fileOf(uid), "utf8");
-    }
+    const raw = redisConfigured()
+      ? await redisGet(`parties:${uid}`)
+      : await fs.readFile(fileOf(uid), "utf8");
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PartyFile;
     parsed.parties.sort((a, b) => a.no - b.no);
@@ -59,8 +35,8 @@ export async function readParties(uid: string): Promise<PartyFile | null> {
 
 export async function writeParties(uid: string, file: PartyFile): Promise<void> {
   const raw = JSON.stringify(file, null, 2);
-  if (redis()) {
-    await redisCmd(["SET", `parties:${uid}`, raw]);
+  if (redisConfigured()) {
+    await redisSet(`parties:${uid}`, raw);
     return;
   }
   await fs.mkdir(path.dirname(fileOf(uid)), { recursive: true });

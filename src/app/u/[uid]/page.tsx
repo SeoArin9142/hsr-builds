@@ -13,8 +13,12 @@ import { getShowcase } from "@/lib/mihomo";
 import { getParties } from "@/lib/parties";
 import { MAX_PARTIES } from "@/lib/partyStore";
 import { getRoster } from "@/lib/roster";
+import { getViewerCookie } from "@/lib/viewer";
 
-type Props = { params: Promise<{ uid: string }> };
+type Props = {
+  params: Promise<{ uid: string }>;
+  searchParams: Promise<{ refresh?: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { uid } = await params;
@@ -27,9 +31,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ProfilePage({ params }: Props) {
-  const { uid } = await params;
-  const [result, partyFile, jar] = await Promise.all([getRoster(uid), getParties(uid), cookies()]);
+export default async function ProfilePage({ params, searchParams }: Props) {
+  const [{ uid }, { refresh }, jar, viewer] = await Promise.all([
+    params,
+    searchParams,
+    cookies(),
+    getViewerCookie(),
+  ]);
+  const canEdit = verifyToken(uid, jar.get(cookieName(uid))?.value);
+  // 새로고침(캐시 무시)은 자기 쿠키를 연결했거나 이 UID 의 주인으로 확인된 사람만
+  const canRefresh = viewer !== null || canEdit;
+  const [result, partyFile] = await Promise.all([
+    getRoster(uid, { viewer, refresh: refresh === "1" && canRefresh }),
+    getParties(uid),
+  ]);
 
   if (!result.ok) {
     return <ErrorBox title="조회할 수 없습니다" message={result.message} uid={uid} />;
@@ -40,11 +55,22 @@ export default async function ProfilePage({ params }: Props) {
   const space = player.space_info;
   const parties = partyFile?.parties ?? [];
   const cards = characters.map(toCardModel);
-  const canEdit = verifyToken(uid, jar.get(cookieName(uid))?.value);
 
+  const dataTime = hoyolab.fetchedAt
+    ? new Date(hoyolab.fetchedAt).toLocaleString("ko-KR", {
+        timeZone: "Asia/Seoul",
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    : null;
   const sourceLine =
     hoyolab.status === "ok"
-      ? `HoYoLAB 전적 ${hoyolab.count}명 + 전시 ${showcaseIds.length}명`
+      ? `HoYoLAB 전적 ${hoyolab.count}명 + 전시 ${showcaseIds.length}명${dataTime ? ` · ${dataTime} 기준` : ""}${
+          hoyolab.viaViewer ? " · 내 계정으로 조회" : ""
+        }`
       : `전시 ${showcaseIds.length}명`;
 
   return (
@@ -130,7 +156,24 @@ export default async function ProfilePage({ params }: Props) {
 
       {/* 캐릭터 */}
       <section>
-        <SectionTitle right={sourceLine}>캐릭터</SectionTitle>
+        <SectionTitle
+          right={
+            <span className="inline-flex items-center gap-2">
+              <span>{sourceLine}</span>
+              {canRefresh && hoyolab.status === "ok" && (
+                <a
+                  href={`/u/${uid}?refresh=1`}
+                  className="rounded border border-card-border px-1.5 py-0.5 text-[11px] hover:border-accent/70 hover:text-foreground"
+                  title="HoYoLAB 에서 다시 가져오기 (같은 UID 는 한도에 다시 세지 않음)"
+                >
+                  새로고침
+                </a>
+              )}
+            </span>
+          }
+        >
+          캐릭터
+        </SectionTitle>
         {cards.length === 0 ? (
           <p className="rounded-lg border border-card-border bg-card p-6 text-center text-sm text-muted">
             보여 줄 캐릭터가 없습니다. 인게임 캐릭터 전시에 올려 주세요.

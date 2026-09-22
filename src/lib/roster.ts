@@ -1,4 +1,4 @@
-import { getHoyolabRoster, type HoyolabStatus } from "./hoyolab";
+import { getHoyolabRoster, type HoyoCookie, type HoyolabStatus } from "./hoyolab";
 import { getShowcase } from "./mihomo";
 import { getGameIndex, type GameIndex } from "./starrailres";
 import type { Character, Player } from "./types";
@@ -12,7 +12,14 @@ export interface Roster {
   player: Player;
   characters: Character[]; // 정렬: 희귀도 → 레벨 → 성혼 → 이름
   showcaseIds: string[];
-  hoyolab: { status: HoyolabStatus; message?: string; count: number };
+  hoyolab: {
+    status: HoyolabStatus;
+    message?: string;
+    count: number;
+    fetchedAt?: number; // HoYoLAB 데이터 기준 시각
+    cached?: boolean;
+    viaViewer: boolean; // 방문자가 연결한 쿠키로 조회했는지
+  };
   index: GameIndex;
 }
 
@@ -20,11 +27,16 @@ export type RosterResult =
   | { ok: true; roster: Roster }
   | { ok: false; status: number; message: string };
 
-export async function getRoster(uid: string): Promise<RosterResult> {
+export interface RosterOpts {
+  viewer?: HoyoCookie | null; // 방문자가 [내 계정 연결]로 준 쿠키
+  refresh?: boolean; // 캐시 무시하고 새로 조회
+}
+
+export async function getRoster(uid: string, opts: RosterOpts = {}): Promise<RosterResult> {
   const index = await getGameIndex();
   const [showcase, hoyolab] = await Promise.all([
     getShowcase(uid),
-    getHoyolabRoster(uid, index),
+    getHoyolabRoster(uid, index, { viewer: opts.viewer, refresh: opts.refresh }),
   ]);
   if (!showcase.ok) return showcase;
 
@@ -50,6 +62,9 @@ export async function getRoster(uid: string): Promise<RosterResult> {
         status: hoyolab.status,
         message: hoyolab.message,
         count: hoyolab.characters.length,
+        fetchedAt: hoyolab.fetchedAt,
+        cached: hoyolab.cached,
+        viaViewer: hoyolab.cookieId?.startsWith("user:") ?? false,
       },
       index,
     },

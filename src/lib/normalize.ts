@@ -78,7 +78,13 @@ export interface NormShowcase {
   fetched_at: string;
   sources: {
     showcase: number; // 전시 캐릭터 수
-    hoyolab: { status: string; message?: string; count: number };
+    hoyolab: {
+      status: string;
+      message?: string;
+      count: number;
+      fetched_at?: string; // HoYoLAB 데이터 기준 시각 (24시간 캐시)
+      via_viewer?: boolean; // 방문자가 연결한 계정으로 조회했는지
+    };
   };
   parties: NormParty[]; // 계정 주인이 편집기로 만든 파티 (없으면 빈 배열)
   characters: NormCharacter[];
@@ -180,7 +186,13 @@ export function normalizeRoster(r: Roster, parties?: PartyFile | null): NormShow
     fetched_at: new Date().toISOString(),
     sources: {
       showcase: r.showcaseIds.length,
-      hoyolab: { status: r.hoyolab.status, message: r.hoyolab.message, count: r.hoyolab.count },
+      hoyolab: {
+        status: r.hoyolab.status,
+        message: r.hoyolab.message,
+        count: r.hoyolab.count,
+        fetched_at: r.hoyolab.fetchedAt ? new Date(r.hoyolab.fetchedAt).toISOString() : undefined,
+        via_viewer: r.hoyolab.viaViewer,
+      },
     },
     parties: (parties?.parties ?? []).map((p) => ({
       no: p.no,

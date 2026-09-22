@@ -1,6 +1,7 @@
 import { normalizeRoster, showcaseToMarkdown } from "@/lib/normalize";
 import { getParties } from "@/lib/parties";
 import { getRoster } from "@/lib/roster";
+import { getViewerCookie } from "@/lib/viewer";
 
 /**
  * GET /api/u/{uid}/md              캐릭터 전체(전시 + HoYoLAB)를 마크다운으로
@@ -13,7 +14,8 @@ export async function GET(
   { params }: { params: Promise<{ uid: string }> },
 ) {
   const { uid } = await params;
-  const [result, parties] = await Promise.all([getRoster(uid), getParties(uid)]);
+  const viewer = await getViewerCookie();
+  const [result, parties] = await Promise.all([getRoster(uid, { viewer }), getParties(uid)]);
   if (!result.ok) {
     return new Response(`오류: ${result.message}\n`, {
       status: result.status,

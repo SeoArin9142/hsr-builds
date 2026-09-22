@@ -12,6 +12,7 @@ import { getShowcase } from "@/lib/mihomo";
 import { characterToMarkdown, normalizeCharacter } from "@/lib/normalize";
 import { getRoster } from "@/lib/roster";
 import { getGameIndex } from "@/lib/starrailres";
+import { getViewerCookie } from "@/lib/viewer";
 import { levelText } from "@/lib/stats";
 
 type Props = { params: Promise<{ uid: string; id: string }> };
@@ -26,7 +27,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CharacterPage({ params }: Props) {
   const { uid, id } = await params;
-  const result = await getRoster(uid);
+  const viewer = await getViewerCookie();
+  const result = await getRoster(uid, { viewer });
   if (!result.ok) {
     return <ErrorBox title="조회할 수 없습니다" message={result.message} uid={uid} />;
   }

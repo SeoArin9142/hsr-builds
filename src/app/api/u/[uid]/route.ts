@@ -3,6 +3,7 @@ import { getShowcase } from "@/lib/mihomo";
 import { normalizeRoster } from "@/lib/normalize";
 import { getParties } from "@/lib/parties";
 import { getRoster } from "@/lib/roster";
+import { getViewerCookie } from "@/lib/viewer";
 
 /**
  * GET /api/u/{uid}
@@ -22,7 +23,8 @@ export async function GET(
     }
     return NextResponse.json(showcase.data);
   }
-  const [result, parties] = await Promise.all([getRoster(uid), getParties(uid)]);
+  const viewer = await getViewerCookie();
+  const [result, parties] = await Promise.all([getRoster(uid, { viewer }), getParties(uid)]);
   if (!result.ok) {
     return NextResponse.json({ error: result.message }, { status: result.status });
   }

@@ -8,12 +8,24 @@
 | 무엇 | 어디서 | 비고 |
 |---|---|---|
 | 전시 캐릭터(최대 8명) 스탯·광추·유물·행적·성혼 | [Mihomo API](https://api.mihomo.me/sr_info_parsed/{uid}?lang=kr) | 인게임 **캐릭터 전시** + **상세 정보 표시** ON. 로그인 없음, 5분 캐시 |
-| **보유 캐릭터 전부** 스탯·광추·유물·행적·성혼 | HoYoLAB 전적 API (`game_record/hkrpg/api/avatar/info`) | 서버에 둔 사이트 주인의 HoYoLAB 쿠키로 조회. 상대가 전적 비공개면 실패 → 전시로 대체. **쿠키당 하루 30개 UID** 제한, 10분 메모리 캐시 |
+| **보유 캐릭터 전부** 스탯·광추·유물·행적·성혼 | HoYoLAB 전적 API (`game_record/hkrpg/api/avatar/info`) | 서버의 **쿠키 풀**(사이트 주인 계정 + 부계정들) 또는 방문자가 [내 계정 연결]로 준 자기 쿠키로 조회. 상대가 전적 비공개면 실패 → 전시로 대체. **쿠키(계정)당 하루 30개 UID** 제한, 결과는 24시간 캐시(Redis) |
 | 이름·아이콘·이미지·유물 세트 효과 | [StarRailRes](https://github.com/Mar-7th/StarRailRes) | `index_min/kr/*.json`, `icon/`, `image/` (1일 캐시) |
 | 파티 편성 | 사이트의 파티 편집기 → `data/parties/<uid>.json` 또는 Upstash Redis | 게임 API 가 파티 편성을 제공하지 않음 |
 
-방문자는 로그인하지 않는다. HoYoLAB 쿠키는 서버 환경변수에만 있고, 같은 캐릭터가 전시와 HoYoLAB 양쪽에 있으면
-전시 쪽(스킬 설명·광추 스탯이 더 자세함)을 쓴다.
+방문자는 로그인하지 않는다. 같은 캐릭터가 전시와 HoYoLAB 양쪽에 있으면 전시 쪽(스킬 설명·광추 스탯이 더 자세함)을 쓴다.
+
+### HoYoLAB 조회 순서와 한도 (`src/lib/hoyolab.ts`)
+
+1. 메모리 캐시(10분) → Redis 캐시(24시간) → HoYoLAB 호출
+2. 호출에 쓰는 쿠키: 방문자가 연결한 자기 쿠키 → 그 UID 주인 계정의 쿠키(비공개여도 본인은 봄) → 오늘 그 UID 를 이미 본 풀 쿠키 → 오늘 덜 쓴 풀 쿠키
+3. `10101`(하루 30 UID 초과) 이면 그 쿠키를 그날 소진 표시하고 다음 쿠키, `10001`(만료) 이면 12시간 죽음 표시. 전부 안 되면 전시만
+4. 한도는 "쿠키당 서로 다른 UID 30개/일(UTC+8)" — 같은 UID 반복 조회는 안 센다. `/admin` 에서 쿠키별 오늘 사용량·상태 확인
+
+### 내 계정 연결 (`/link`, 선택)
+
+방문자가 자기 HoYoLAB 쿠키를 붙여넣으면(Cookie-Editor JSON·cookies.txt·Cookie 헤더·`ltuid_v2=..; ltoken_v2=..` 어떤 형식이든)
+게임 기록 카드로 살아 있는지 확인한 뒤 AES-GCM(EDIT_SECRET 유도 키)으로 암호화해 그 브라우저의 httpOnly 쿠키에만 둔다.
+서버 저장 없음, 30일 뒤 만료. 이후 그 브라우저의 조회는 그 계정 한도로 나간다.
 
 ## 화면 / 주소
 
@@ -26,6 +38,9 @@
 | `/api/u/{uid}/md` | 캐릭터 전체 마크다운. `?c={characterId}` 한 명, `?showcase=1` 전시만. AI 에게 이 주소를 주면 된다 |
 | `/api/u/{uid}/parties` | GET 파티 목록 / PUT 저장(편집 토큰 필요) |
 | `/api/u/{uid}/claim` | GET 확인 코드 / POST 본인 확인(서명 또는 관리자 키) → 편집 토큰 쿠키 |
+| `/link`, `/api/link` | 내 계정 연결 (GET 상태 / POST 연결 / DELETE 해제) |
+| `/admin`, `/api/admin/status` | 쿠키 풀 상태 (헤더 `x-admin-key: EDIT_ADMIN_KEY`) |
+| `/u/{uid}?refresh=1` | 캐시 무시하고 다시 조회 — 자기 쿠키를 연결했거나 그 UID 의 주인으로 확인된 사람만 |
 
 ## 파티 편집 (본인 확인)
 
@@ -43,7 +58,8 @@
 | 이름 | 용도 |
 |---|---|
 | `NEXT_PUBLIC_OWNER_UID` | 홈 화면 바로가기 UID |
-| `HOYOLAB_LTUID_V2`, `HOYOLAB_LTOKEN_V2` | HoYoLAB 쿠키 (브라우저 F12 → Application → Cookies → hoyolab.com). 없으면 전시만 |
+| `HOYOLAB_LTUID_V2`, `HOYOLAB_LTOKEN_V2` | 사이트 주인 HoYoLAB 쿠키 (브라우저 F12 → Application → Cookies → hoyolab.com) |
+| `HOYOLAB_COOKIES` | 부계정 쿠키 풀: `ltuid:ltoken` 을 쉼표로 (계정당 하루 30 UID). 위 두 개도 풀에 합쳐진다. 전부 없으면 전시만 |
 | `EDIT_SECRET` | 편집 토큰·확인 코드 서명용 (아무 긴 문자열) |
 | `EDIT_ADMIN_KEY` | 사이트 주인용 편집 키 |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (또는 Vercel Upstash 연동이 넣는 `KV_REST_API_URL`, `KV_REST_API_TOKEN`) | 선택. 있으면 파티를 Redis 에 저장 (Vercel 처럼 파일을 못 쓰는 곳) |
@@ -55,6 +71,8 @@ npm install
 npm run dev      # http://localhost:3000
 npm run build    # 타입 검사 포함
 node scripts/probe-hoyolab.mjs [uid]   # HoYoLAB 쿠키·응답 점검 (쿠키 값은 출력 안 함)
+node scripts/probe-cookies.mjs [--full] # 풀의 쿠키 전부 살아 있는지 (--full: 남의 전적 조회까지, 쿠키당 UID 1개 소모)
+node scripts/test-link.mjs             # 내 계정 연결 API 흐름
 node scripts/test-parties.mjs [uid]    # 파티 API 흐름 점검 (관리자 키 사용, 끝나면 파티8 하나로 되돌림)
 ```
 
@@ -64,6 +82,8 @@ node scripts/test-parties.mjs [uid]    # 파티 API 흐름 점검 (관리자 키
   `src/lib/roster.ts` 두 출처 합치기 · `src/lib/stats.ts` 기초+가산 → 최종 · `src/lib/normalize.ts` JSON/마크다운 ·
   `src/lib/claim.ts` 본인 확인 · `src/lib/partyStore.ts` 파티 저장.
 - HoYoLAB 데이터는 승급 단계·스킬 최대 레벨·광추 스탯을 주지 않아서 그 부분은 비워 둔다(전시 캐릭터는 다 나옴).
+- 쿠키 관리: `ltoken_v2` 는 로그인 세션이라 그 계정으로 **로그아웃하거나 다시 로그인하면 무효**가 된다.
+  계정마다 시크릿 창에서 로그인 → 쿠키 복사 → 로그아웃 없이 창 닫기. 만료되면 `/admin` 에 "만료" 로 뜬다.
 
 ## 배포
 
