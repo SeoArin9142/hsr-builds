@@ -15,11 +15,14 @@ import type {
 
 /**
  * HoYoLAB 전적(Battle Chronicle) 의 캐릭터 목록.
- * 서버에 둔 사이트 쿠키 풀(HOYOLAB_COOKIES / HOYOLAB_LTUID_V2+LTOKEN_V2) 또는 방문자가
- * [내 계정 연결]로 준 자기 쿠키로 아무 UID 나 조회한다.
- * 상대가 HoYoLAB 에서 전적을 비공개로 두면 안 나오고, 쿠키(계정) 하나당 하루 30개 UID 까지다.
- * 결과는 24시간 캐시(Redis, 없으면 메모리)하고, Mihomo 와 같은 Character 모양으로 바꿔서
- * 화면 컴포넌트를 그대로 쓴다.
+ *
+ * 중요: HoYoLAB 은 **자기 계정**에만 전체 캐릭터와 스탯을 준다. 남의 계정은 (전적 공개를 켜도)
+ * 최신 캐릭터 8명의 이름·레벨·광추·유물 이름만 오고 스탯·부옵션은 비어 있다(2026-09 확인).
+ * 그래서 이 모듈은 "그 UID 의 주인 쿠키"가 있을 때만 HoYoLAB 을 부른다:
+ *   - 서버 쿠키 풀(HOYOLAB_COOKIES / HOYOLAB_LTUID_V2+LTOKEN_V2) 중 그 UID 가 연동된 계정
+ *   - 방문자가 [내 계정 연결]로 준 자기 쿠키 (자기 UID 일 때)
+ * 결과는 7일 캐시(Redis, 없으면 메모리)해서 주인이 아닌 방문자·AI 도 본다. 주인 쿠키가 있으면
+ * 1시간마다 새로 받는다. Mihomo 와 같은 Character 모양으로 바꿔서 화면 컴포넌트를 그대로 쓴다.
  */
 
 const API = "https://bbs-api-os.hoyolab.com/game_record/hkrpg/api/avatar/info";
@@ -36,6 +39,7 @@ const SERVER: Record<string, string> = {
 export type HoyolabStatus =
   | "ok"
   | "disabled" // 서버에 쿠키가 없음
+  | "unlinked" // 이 UID 의 주인 쿠키가 없음 (HoYoLAB 은 남에게 전체를 안 보여 준다)
   | "unsupported" // 중국 서버 UID
   | "private" // 상대가 전적 비공개
   | "limit" // 하루 30개 UID 초과
@@ -453,6 +457,7 @@ export interface HoyoCookie {
   ltuid: string;
   ltoken: string;
   owned?: boolean;
+  uids?: string[]; // 이 계정에 연동된 스타레일 UID (알고 있을 때)
 }
 
 /**
@@ -497,7 +502,8 @@ function secondsToDayEnd(now = Date.now()): number {
   return Math.max(60, Math.floor((end - shifted) / 1000) + 60);
 }
 
-const ROSTER_TTL = 24 * 3600; // 조회 결과 캐시 (초)
+const ROSTER_TTL = 7 * 86400; // 조회 결과 캐시 (초) — 주인이 안 들어와도 방문자가 볼 수 있게 길게
+const STALE_MS = 60 * 60 * 1000; // 이보다 오래된 캐시는 주인 쿠키가 있으면 새로 받는다
 const MEM_TTL_MS = 10 * 60 * 1000; // 프로세스 안 1차 캐시
 
 /* ---------- 호출 ---------- */
@@ -600,14 +606,26 @@ function unpack(packed: string): Character[] {
 }
 
 export interface RosterOptions {
-  viewer?: HoyoCookie | null; // 방문자가 연결한 자기 쿠키 (있으면 이걸 먼저 쓴다)
+  viewer?: HoyoCookie | null; // 방문자가 연결한 자기 쿠키 (자기 UID 면 이걸로 새로 받는다)
   refresh?: boolean; // 캐시를 건너뛰고 새로 조회
 }
 
+/** 이 UID 의 주인 쿠키들 (방문자 쿠키 → 풀 순) */
+async function ownerCookies(
+  uid: string,
+  viewer: HoyoCookie | null,
+  pool: HoyoCookie[],
+  kv: KV,
+): Promise<HoyoCookie[]> {
+  const out: HoyoCookie[] = [];
+  if (viewer && (viewer.uids ?? []).includes(uid)) out.push(viewer);
+  for (const c of pool) if ((await ownedUids(c, kv)).includes(uid)) out.push(c);
+  return out;
+}
+
 /**
- * 조회 순서: 메모리 캐시 → Redis 캐시(24시간) → HoYoLAB.
- * HoYoLAB 을 부를 때는 방문자 쿠키 → (같은 UID 를 오늘 이미 쓴 풀 쿠키) → 오늘 덜 쓴 풀 쿠키 순.
- * 한도 초과(10101)·만료(10001)는 기록해 두고 다른 쿠키로 넘어간다.
+ * 조회 순서: 메모리 캐시 → Redis 캐시 → (주인 쿠키가 있을 때만) HoYoLAB.
+ * 캐시가 1시간 넘게 오래됐고 주인 쿠키가 있으면 새로 받고, 주인 쿠키가 없으면 있는 캐시를 그대로 준다.
  */
 export async function getHoyolabRoster(
   uid: string,
@@ -627,31 +645,42 @@ export async function getHoyolabRoster(
   }
 
   const kv = getKV();
+  let cached: HoyolabResult | null = null;
   if (!opts.refresh) {
     const hit = mem.get(uid);
-    if (hit && Date.now() - hit.at < MEM_TTL_MS) return hit.result;
-    try {
-      const packed = await kv.get(`hoyo:roster:${uid}`);
-      if (packed) {
-        const { at, data } = JSON.parse(packed) as { at: number; data: string };
-        const result: HoyolabResult = { status: "ok", characters: unpack(data), fetchedAt: at, cached: true };
-        mem.set(uid, { at: Date.now(), result });
-        return result;
+    if (hit && Date.now() - hit.at < MEM_TTL_MS) cached = hit.result;
+    if (!cached) {
+      try {
+        const packed = await kv.get(`hoyo:roster:${uid}`);
+        if (packed) {
+          const { at, data } = JSON.parse(packed) as { at: number; data: string };
+          cached = { status: "ok", characters: unpack(data), fetchedAt: at, cached: true };
+          mem.set(uid, { at: Date.now(), result: cached });
+        }
+      } catch (e) {
+        console.error("[hoyolab] 캐시 읽기 실패", e);
       }
-      // 비공개 기록은 방문자가 자기 쿠키를 연결하지 않았을 때만 재사용 (본인 쿠키면 볼 수 있으므로)
-      if (!viewer) {
-        const priv = await kv.get(`hoyo:private:${uid}`);
-        if (priv) return { ...mapError(10102, "", false), fetchedAt: Number(priv), cached: true };
-      }
-    } catch (e) {
-      console.error("[hoyolab] 캐시 읽기 실패", e);
     }
+    if (cached && Date.now() - (cached.fetchedAt ?? 0) < STALE_MS) return cached;
   }
 
-  const key = `${uid}:${viewer?.id ?? "pool"}`;
+  const owners = await ownerCookies(uid, viewer, pool, kv);
+  if (owners.length === 0) {
+    if (cached) return cached; // 오래됐어도 주인 쿠키가 없으면 그대로
+    return {
+      status: "unlinked",
+      message:
+        "전체 캐릭터는 이 UID 의 주인이 [내 계정 연결]을 한 경우에만 보입니다. 지금은 인게임 전시 캐릭터만 보여 줍니다.",
+      characters: [],
+    };
+  }
+
+  const key = `${uid}:${owners.map((c) => c.id).join("|")}`;
   const pending = inflight.get(key);
   if (pending) return pending;
-  const p = fetchWithCookies(uid, server, idx, viewer, pool, kv).finally(() => inflight.delete(key));
+  const p = fetchWithCookies(uid, server, idx, owners, kv)
+    .then((r) => (r.status === "ok" || !cached ? r : cached)) // 새로 받기 실패하면 옛 캐시라도
+    .finally(() => inflight.delete(key));
   inflight.set(key, p);
   return p;
 }
@@ -672,6 +701,7 @@ async function isAlive(ck: HoyoCookie): Promise<boolean> {
 
 /** 쿠키(계정)에 연동된 스타레일 UID 목록. 게임 기록 카드는 한도를 안 쓰므로 하루 캐시. */
 async function ownedUids(ck: HoyoCookie, kv: KV): Promise<string[]> {
+  if (ck.uids) return ck.uids;
   const key = `hoyo:owned:${ck.id}`;
   const cached = await kv.get(key).catch(() => null);
   if (cached) return JSON.parse(cached) as string[];
@@ -700,44 +730,24 @@ async function fetchWithCookies(
   uid: string,
   server: string,
   idx: GameIndex,
-  viewer: HoyoCookie | null,
-  pool: HoyoCookie[],
+  owners: HoyoCookie[],
   kv: KV,
 ): Promise<HoyolabResult> {
   const day = dayKey();
-  const candidates: HoyoCookie[] = [];
-  if (viewer) candidates.push(viewer);
-  // 1) 이 UID 의 주인 계정 쿠키가 풀에 있으면 그게 먼저 (비공개여도 본인은 볼 수 있다)
-  // 2) 오늘 이 UID 를 이미 조회한 풀 쿠키 (같은 UID 는 다시 세지 않는다)
-  // 3) 오늘 덜 쓴 순
-  const sticky = await kv.get(`hoyo:sticky:${uid}`).catch(() => null);
-  const rank = new Map<string, number>();
-  for (const c of pool) {
-    const owned = await ownedUids(c, kv);
-    const usage = await kv.scard(`hoyo:day:${c.id}:${day}`).catch(() => 0);
-    rank.set(c.id, owned.includes(uid) ? -2000 : c.id === sticky ? -1000 : usage);
-  }
-  candidates.push(...[...pool].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)));
-
   let last: HoyolabResult | null = null;
-  for (const ck of candidates) {
-    // 만료 표시된 쿠키는 (관리자가 갱신했을 수 있으니) 한도를 안 쓰는 게임 기록 카드로 다시 확인한다
+  for (const ck of owners) {
+    // 만료 표시된 쿠키는 (갱신됐을 수 있으니) 한도를 안 쓰는 게임 기록 카드로 다시 확인한다
     if (await kv.get(`hoyo:dead:${ck.id}`).catch(() => null)) {
       if (!(await isAlive(ck))) continue;
       await kv.del(`hoyo:dead:${ck.id}`).catch(() => {});
       await kv.del(`hoyo:owned:${ck.id}`).catch(() => {});
     }
-    if (await kv.get(`hoyo:exhausted:${ck.id}:${day}`).catch(() => null)) continue;
 
     const r = await fetchRoster(uid, server, ck, idx);
     last = r;
-    if (r.status === "ok" || r.status === "private") {
-      // 이 쿠키의 오늘 사용 기록 + UID→쿠키 고정
-      await kv.sadd(`hoyo:day:${ck.id}:${day}`, uid, 2 * 86400).catch(() => {});
-      if (!ck.owned) await kv.set(`hoyo:sticky:${uid}`, ck.id, 86400).catch(() => {});
-    }
     if (r.status === "ok") {
       const at = Date.now();
+      await kv.sadd(`hoyo:day:${ck.id}:${day}`, uid, 2 * 86400).catch(() => {});
       const result: HoyolabResult = { ...r, fetchedAt: at, cookieId: ck.id };
       mem.set(uid, { at, result });
       kv.set(`hoyo:roster:${uid}`, JSON.stringify({ at, data: pack(r.characters) }), ROSTER_TTL).catch((e) =>
@@ -745,27 +755,17 @@ async function fetchWithCookies(
       );
       return result;
     }
-    if (r.status === "private") {
-      await kv.set(`hoyo:private:${uid}`, String(Date.now()), ROSTER_TTL).catch(() => {});
-      return { ...r, fetchedAt: Date.now() };
+    if (r.status === "expired") {
+      await kv.set(`hoyo:dead:${ck.id}`, "1", 12 * 3600).catch(() => {});
+      continue;
     }
     if (r.status === "limit") {
       await kv.set(`hoyo:exhausted:${ck.id}:${day}`, "1", secondsToDayEnd()).catch(() => {});
       continue;
     }
-    if (r.status === "expired") {
-      await kv.set(`hoyo:dead:${ck.id}`, "1", 12 * 3600).catch(() => {});
-      continue;
-    }
-    return r; // 캡차·네트워크 오류: 다른 쿠키로 바꿔도 소용없다
+    return r;
   }
-
-  if (last) return last;
-  return {
-    status: "limit",
-    message: "오늘 사이트 전체의 HoYoLAB 조회 한도가 찼습니다. 내일 다시 시도하거나 전시 캐릭터를 참고해 주세요.",
-    characters: [],
-  };
+  return last ?? { status: "error", message: "HoYoLAB 조회에 실패했습니다.", characters: [] };
 }
 
 /* ---------- 관리 화면용 상태 ---------- */

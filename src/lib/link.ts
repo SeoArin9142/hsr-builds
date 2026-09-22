@@ -131,5 +131,5 @@ export function openLink(sealed: string | undefined): LinkedAccount | null {
 }
 
 export function toHoyoCookie(acc: LinkedAccount): HoyoCookie {
-  return { id: `user:${acc.ltuid}`, ltuid: acc.ltuid, ltoken: acc.ltoken, owned: true };
+  return { id: `user:${acc.ltuid}`, ltuid: acc.ltuid, ltoken: acc.ltoken, owned: true, uids: acc.uids };
 }

@@ -78,7 +78,7 @@ export default function AdminPage() {
               {status.cookies.map((c) => (
                 <tr key={c.id} className="border-b border-card-border/50 last:border-0">
                   <td className="py-1.5 font-mono text-xs">{c.ltuidMasked}</td>
-                  <td className="py-1.5 text-right tabular-nums">{c.today} / 30</td>
+                  <td className="py-1.5 text-right tabular-nums">{c.today}</td>
                   <td className="py-1.5 text-right">
                     {c.dead ? (
                       <span className="text-red-300">만료 — 쿠키를 갱신하면 다음 조회 때 자동 복구</span>
@@ -100,8 +100,9 @@ export default function AdminPage() {
             </tbody>
           </table>
           <p className="mt-3 text-xs text-muted">
-            쿠키를 늘리려면 환경변수 <code>HOYOLAB_COOKIES</code> 에 <code>ltuid:ltoken</code> 을 쉼표로 이어 넣고
-            재배포하면 됩니다. 계정 하나당 하루 30개 UID.
+            쿠키는 <b>자기 계정에 연동된 UID 의 전체 조회</b>에만 쓰입니다 — HoYoLAB 은 남의 계정엔 캐릭터 8명·스탯
+            없음만 보여 주므로 부계정을 늘려도 남의 UID 는 더 보이지 않습니다. 사이트 주인 계정을 여러 개 쓰려면
+            <code>HOYOLAB_COOKIES</code> 에 <code>ltuid:ltoken</code> 을 쉼표로 이어 넣고 재배포.
           </p>
         </div>
       )}

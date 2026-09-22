@@ -28,11 +28,16 @@ export default function Home() {
         <h2 className="font-bold">어디까지 보이나</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-foreground/85">
           <li>
-            <b>보유 캐릭터 전부</b> — HoYoLAB 에서 <b>전적 공개</b>가 켜져 있는 계정 (기본값이 공개)
+            기본은 인게임 <b>캐릭터 전시</b>에 올린 최대 8명 — 프로필 → 캐릭터 전시에서{" "}
+            <b>상세 정보 표시</b>도 켜야 스탯·유물이 나온다
           </li>
           <li>
-            전적이 비공개면 인게임 <b>캐릭터 전시</b>에 올린 최대 8명만 — 프로필 → 캐릭터 전시에서{" "}
-            <b>상세 정보 표시</b>도 켜야 스탯·유물이 나온다
+            <b>보유 캐릭터 전부</b>를 보이게 하려면 계정 주인이{" "}
+            <Link href="/link" className="text-accent hover:underline">
+              내 계정 연결
+            </Link>{" "}
+            을 한 번 — 그 뒤엔 누가 열어도(AI 포함) 전체가 보인다. HoYoLAB 이 남에게는 전체를 안 보여 주기
+            때문에 이 방법뿐이다
           </li>
           <li>반영까지 몇 분 걸릴 수 있다 (게임 서버·API 캐시)</li>
           <li>파티 편성은 게임이 외부에 주지 않아서, 계정 주인이 [파티 편집] 으로 직접 만든다 (최대 12개)</li>

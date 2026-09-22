@@ -68,8 +68,8 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     : null;
   const sourceLine =
     hoyolab.status === "ok"
-      ? `HoYoLAB 전적 ${hoyolab.count}명 + 전시 ${showcaseIds.length}명${dataTime ? ` · ${dataTime} 기준` : ""}${
-          hoyolab.viaViewer ? " · 내 계정으로 조회" : ""
+      ? `보유 ${hoyolab.count}명 (HoYoLAB) + 전시 ${showcaseIds.length}명${dataTime ? ` · ${dataTime} 기준` : ""}${
+          hoyolab.viaViewer ? " · 내 계정으로 갱신" : ""
         }`
       : `전시 ${showcaseIds.length}명`;
 
@@ -115,7 +115,17 @@ export default async function ProfilePage({ params, searchParams }: Props) {
         </div>
       )}
 
-      {hoyolab.status !== "ok" && hoyolab.status !== "disabled" && (
+      {(hoyolab.status === "unlinked" || hoyolab.status === "disabled") && (
+        <div className="rounded-lg border border-card-border bg-card/60 p-4 text-sm text-foreground/85">
+          지금은 인게임 <b>캐릭터 전시</b>에 올린 캐릭터만 보입니다. 이 UID 의 주인이라면{" "}
+          <a href="/link" className="text-accent hover:underline">
+            내 계정 연결
+          </a>{" "}
+          을 한 번 하면 보유 캐릭터 전체(스탯·유물 포함)가 이 페이지에 보이고, 방문자와 AI 도 같은 걸
+          봅니다. (HoYoLAB 은 남에게는 전체 캐릭터를 보여 주지 않습니다.)
+        </div>
+      )}
+      {hoyolab.status !== "ok" && hoyolab.status !== "disabled" && hoyolab.status !== "unlinked" && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
           {hoyolab.message}
         </div>
