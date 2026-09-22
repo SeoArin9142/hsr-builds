@@ -16,15 +16,16 @@ import { SITE_URL } from "@/lib/site";
  *
  * 인증: Vercel Cron 이 보내는 Authorization: Bearer $CRON_SECRET,
  *       또는 손으로 부를 때 x-admin-key: $EDIT_ADMIN_KEY.
+ * ?test=1 (관리자 키로 부를 때만): 문제가 없어도 웹훅을 한 번 울려 본다 — 알림 설정 확인용.
  */
 
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  if (checkAdminKey(req.headers.get("x-admin-key") ?? undefined)) return true;
+function authorized(req: Request): "admin" | "cron" | null {
+  if (checkAdminKey(req.headers.get("x-admin-key") ?? undefined)) return "admin";
   const secret = process.env.CRON_SECRET;
-  if (!secret) return false; // CRON_SECRET 이 없으면 아무나 부를 수 없게 막는다
-  return req.headers.get("authorization") === `Bearer ${secret}`;
+  if (!secret) return null; // CRON_SECRET 이 없으면 아무나 부를 수 없게 막는다
+  return req.headers.get("authorization") === `Bearer ${secret}` ? "cron" : null;
 }
 
 async function monthUsage(): Promise<{ used: number; budget: number; ratio: number }> {
@@ -35,9 +36,11 @@ async function monthUsage(): Promise<{ used: number; budget: number; ratio: numb
 }
 
 export async function GET(req: Request) {
-  if (!authorized(req)) {
+  const who = authorized(req);
+  if (!who) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const test = who === "admin" && new URL(req.url).searchParams.get("test") === "1";
 
   const kv = getKV();
   const cookies = poolCookies();
@@ -77,10 +80,21 @@ export async function GET(req: Request) {
   let notified = false;
   if (notes.length > 0) {
     notified = await alert("health", `⚠️ HSR Builds 점검\n${notes.join("\n")}\n${SITE_URL}/admin`);
+  } else if (test) {
+    // 시험은 "하루에 한 번" 제한에 걸리지 않게 매번 다른 key 로 보낸다
+    notified = await alert(
+      `test:${Date.now()}`,
+      `✅ HSR Builds 점검 알림 시험 — 지금은 문제가 없습니다.\n` +
+        `사이트 쿠키 ${checked.length}개 정상 · 이번 달 요청 ${month.used}/${month.budget}\n` +
+        `${SITE_URL}/admin`,
+      60,
+    );
   }
 
   return NextResponse.json({
     at: new Date().toISOString(),
+    webhook: !!process.env.ALERT_WEBHOOK, // 주소 자체는 돌려주지 않는다
+    test,
     cookies: checked,
     dead,
     month,
