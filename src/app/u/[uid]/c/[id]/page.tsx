@@ -104,7 +104,7 @@ export default async function CharacterPage({ params }: Props) {
 
             <div className="mt-5">
               <h2 className="mb-2 text-sm font-semibold text-muted">{d.char_stats}</h2>
-              <StatTable c={c} lang={lang} />
+              <StatTable c={c} lang={lang} targets={score.targets} />
             </div>
 
             {c.relics.length > 0 && (

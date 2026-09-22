@@ -54,36 +54,23 @@ export default function BuildReview({
         ))}
       </div>
 
-      {/* 실제 수치 — 목표 대비 막대 */}
+      {/* 목표 대비 달성률 — 자세한 수치는 위 스탯 표에 */}
       {score.targets.length > 0 && (
-        <div className="mt-2.5">
-          <div className="mb-1 text-xs text-muted">{d.sc_targets}</div>
-          <ul className="space-y-1">
-            {score.targets.map((t) => {
-              const row = by(t.field);
-              const done = t.ratio >= 1;
-              return (
-                <li key={t.field} className="flex items-center gap-2 text-xs">
-                  <span className="flex w-28 shrink-0 items-center gap-1 text-muted">
-                    {row?.icon && <GameImage path={row.icon} alt="" width={13} height={13} className="opacity-80" />}
-                    <span className="truncate">{t.name}</span>
-                  </span>
-                  <span className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-card">
-                    <span
-                      className={`block h-full rounded-full ${done ? "bg-emerald-400" : "bg-accent"}`}
-                      style={{ width: `${Math.max(3, t.ratio * 100)}%` }}
-                    />
-                  </span>
-                  <span className={`tabular-nums ${done ? "text-emerald-300" : "text-foreground"}`}>
-                    {formatStat(t.value, t.percent)}
-                  </span>
-                  <span className="tabular-nums text-muted/80">
-                    {fmt(d.sc_target_of, { n: formatStat(t.good, t.percent) })}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span className="text-muted">{d.sc_targets}</span>
+          {score.targets.map((t) => {
+            const row = by(t.field);
+            const done = t.ratio >= 1;
+            return (
+              <span key={t.field} className="inline-flex items-center gap-1">
+                {row?.icon && <GameImage path={row.icon} alt="" width={13} height={13} className="opacity-80" />}
+                <span className="text-muted">{t.name}</span>
+                <span className={done ? "text-emerald-300" : "text-amber-300"}>
+                  {done ? "✓" : `${Math.round(t.ratio * 100)}%`}
+                </span>
+              </span>
+            );
+          })}
         </div>
       )}
 
