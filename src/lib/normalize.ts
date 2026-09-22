@@ -299,6 +299,7 @@ export function showcaseToMarkdown(
   const head = [
     "# " + t("md_title", { nick: n.nickname, uid: n.uid, lv: n.level, wl: n.world_level }),
     t("md_meta", { time: n.fetched_at, source, n: chars.length }),
+    t("md_user_note"),
     "",
   ];
   // 파티는 한 명만 뽑을 때(only)는 빼고, 그 외엔 캐릭터 앞에 둔다
@@ -306,7 +307,7 @@ export function showcaseToMarkdown(
     head.push("## " + t("md_parties"));
     for (const p of n.parties) {
       const members = p.members.map((m) => m.name).join(", ") || t("md_party_empty");
-      head.push(`- ${String(p.no).padStart(2, "0")} ${p.name}: ${members}${p.note ? ` — ${p.note}` : ""}`);
+      head.push(`- ${String(p.no).padStart(2, "0")} "${p.name}": ${members}${p.note ? ` — "${p.note}"` : ""}`);
     }
     head.push("");
   }

@@ -14,6 +14,19 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.hoyolab.com" },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
   // 파티 JSON(data/parties/*.json)은 런타임에 fs 로 읽으므로 배포 번들에 포함시킨다.
   outputFileTracingIncludes: {
     "/u/[uid]": ["./data/**/*"],

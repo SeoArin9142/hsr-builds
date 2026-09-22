@@ -42,8 +42,8 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   ]);
   const d = getDict(lang);
   const canEdit = verifyToken(uid, jar.get(cookieName(uid))?.value);
-  // 새로고침(캐시 무시)은 자기 쿠키를 연결했거나 이 UID 의 주인으로 확인된 사람만
-  const canRefresh = viewer !== null || canEdit;
+  // 새로고침(캐시 무시)은 이 UID 를 연결한 본인이거나 이 UID 의 주인으로 확인된 사람만
+  const canRefresh = (viewer?.uids ?? []).includes(uid) || canEdit;
   const [result, partyFile] = await Promise.all([
     getRoster(uid, { viewer, refresh: refresh === "1" && canRefresh, lang }),
     getParties(uid),

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { tr } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 import { LINK_COOKIE, LINK_DAYS, parseCookieText, sealLink, validateCookie } from "@/lib/link";
+import { clientIp, rateLimit } from "@/lib/ratelimit";
 import { getLinkedAccount } from "@/lib/viewer";
 
 /**
@@ -18,6 +19,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const lang = await getLang();
+  // 우리 서버를 남의 쿠키 검증기·HoYoLAB 프록시로 쓰지 못하게
+  if (!(await rateLimit(`link:${clientIp(req)}`, 10, 600))) {
+    return NextResponse.json({ error: tr(lang, "api_too_many") }, { status: 429 });
+  }
   let text = "";
   try {
     const body = (await req.json()) as { text?: string };

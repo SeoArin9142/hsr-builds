@@ -53,10 +53,18 @@ export function parseCookieText(text: string): { ltuid: string; ltoken: string }
   const t = text.trim();
   if (!t) return null;
   const ltuid = pick(t, "ltuid_v2") ?? pick(t, "ltuid");
-  const ltoken = pick(t, "ltoken_v2") ?? pick(t, "ltoken");
-  if (!ltuid || !ltoken) return null;
+  const rawToken = pick(t, "ltoken_v2") ?? pick(t, "ltoken");
+  if (!ltuid || !rawToken) return null;
   if (!/^\d{5,12}$/.test(ltuid)) return null;
-  return { ltuid, ltoken: decodeURIComponent(ltoken) };
+  // URL 인코딩된 값(%2B 등)은 풀되, 푼 뒤에도 쿠키 값에 안전한 글자만 허용한다 (헤더 주입 방지)
+  let ltoken = rawToken;
+  try {
+    ltoken = decodeURIComponent(rawToken);
+  } catch {
+    ltoken = rawToken;
+  }
+  if (!/^[A-Za-z0-9_\-\.=+/]{20,512}$/.test(ltoken)) return null;
+  return { ltuid, ltoken };
 }
 
 /* ---------- HoYoLAB 에 확인 ---------- */
