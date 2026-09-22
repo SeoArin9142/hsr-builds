@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LangSwitcher } from "./LangProvider";
 import UidSearch from "./UidSearch";
+import VisitorStats from "./VisitorStats";
 import { getDict } from "@/lib/i18n";
 import { getLang } from "@/lib/lang";
 import { OWNER_UID } from "@/lib/site";
@@ -21,7 +22,8 @@ export default async function SiteHeader() {
             {d.nav_link}
           </Link>
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <VisitorStats />
           {/* 폰 너비에서는 검색칸이 찌그러져서 숨긴다 — 홈 화면의 큰 검색칸을 쓴다 */}
           <div className="hidden sm:block">
             <UidSearch />

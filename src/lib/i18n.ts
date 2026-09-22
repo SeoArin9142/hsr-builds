@@ -38,6 +38,9 @@ const ko = {
   error_title: "조회할 수 없습니다",
   error_home: "← 처음으로",
   lang_label: "언어",
+  stats_today: "오늘 {n}명",
+  stats_total: "누적 {n}명",
+  stats_pv: "페이지뷰 {n}",
 
   // 홈
   home_title1: "UID 하나로 보는",
@@ -291,7 +294,7 @@ const ko = {
   // 개인정보·저장 안내
   footer_privacy: "저장하는 정보",
   privacy_title: "저장하는 정보",
-  privacy_1: "이 사이트는 로그인이 없고, 방문자를 추적하지 않습니다.",
+  privacy_1: "이 사이트는 로그인이 없습니다. 방문자 수를 세기 위해 무작위 ID 쿠키 하나만 두며, 개인정보와 연결되지 않습니다.",
   privacy_2: "UID 로 조회한 캐릭터 정보는 게임의 공개 데이터(인게임 캐릭터 전시)이며, 사이트 속도를 위해 잠깐 캐시됩니다.",
   privacy_3: "[내 계정 연결]을 한 경우: HoYoLAB 쿠키는 암호화되어 그 브라우저에만 저장되고 서버에는 남지 않습니다. 받아 온 캐릭터 목록은 7일간 서버에 보관되어 그 UID 를 여는 사람에게 보입니다. [연결 해제]로 언제든 지울 수 있습니다.",
   privacy_4: "파티 편성은 계정 주인이 직접 입력한 내용이며 공개됩니다.",
@@ -357,6 +360,9 @@ const en: Dict = {
   error_title: "Could not load",
   error_home: "← Home",
   lang_label: "Language",
+  stats_today: "Today {n}",
+  stats_total: "Total {n}",
+  stats_pv: "Page views {n}",
 
   home_title1: "One UID, your whole",
   home_title2: "Star Rail profile",
@@ -599,7 +605,7 @@ const en: Dict = {
 
   footer_privacy: "What we store",
   privacy_title: "What we store",
-  privacy_1: "There is no login and no visitor tracking.",
+  privacy_1: "There is no login. A single random-ID cookie is used only to count visitors; it is not linked to any personal data.",
   privacy_2: "Character data looked up by UID is the game's public data (in-game Character Showcase), cached briefly for speed.",
   privacy_3: "If you use [Link my account]: your HoYoLAB cookie is encrypted and kept only in that browser, never on the server. The fetched character list is kept on the server for 7 days and shown to anyone opening that UID. [Unlink] removes it at any time.",
   privacy_4: "Team presets are entered by the account owner and are public.",
@@ -661,6 +667,9 @@ const ja: Dict = {
   error_title: "読み込めませんでした",
   error_home: "← トップへ",
   lang_label: "言語",
+  stats_today: "今日 {n} 人",
+  stats_total: "累計 {n} 人",
+  stats_pv: "ページビュー {n}",
 
   home_title1: "UID ひとつで見る",
   home_title2: "スターレイル プロフィール",
@@ -903,7 +912,7 @@ const ja: Dict = {
 
   footer_privacy: "保存する情報",
   privacy_title: "保存する情報",
-  privacy_1: "このサイトにはログインがなく、訪問者を追跡しません。",
+  privacy_1: "このサイトにはログインがありません。訪問者数を数えるためのランダム ID Cookie を 1 つ置くだけで、個人情報とは結び付きません。",
   privacy_2: "UID で照会したキャラクター情報はゲームの公開データ（ゲーム内キャラクター展示）で、表示速度のため短時間キャッシュされます。",
   privacy_3: "[アカウント連携] をした場合: HoYoLAB Cookie は暗号化してそのブラウザにだけ保存し、サーバーには残しません。取得したキャラクター一覧は 7 日間サーバーに保管され、その UID を開く人に表示されます。[連携解除] でいつでも削除できます。",
   privacy_4: "編成はアカウントの持ち主が入力した内容で、公開されます。",
