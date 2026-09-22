@@ -109,7 +109,7 @@ export default async function CharacterPage({ params }: Props) {
 
             {c.relics.length > 0 && (
               <div className="mt-5">
-                <BuildReview c={c} score={score} lang={lang} />
+                <BuildReview c={c} score={score} lang={lang} uid={uid} />
               </div>
             )}
 

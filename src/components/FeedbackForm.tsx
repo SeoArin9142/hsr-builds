@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useLang } from "./LangProvider";
 
-export default function FeedbackForm() {
+export default function FeedbackForm({ initialMessage = "" }: { initialMessage?: string }) {
   const { d } = useLang();
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage);
   const [contact, setContact] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);

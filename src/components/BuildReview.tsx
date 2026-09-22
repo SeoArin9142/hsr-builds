@@ -1,3 +1,4 @@
+import Link from "next/link";
 import GameImage from "./GameImage";
 import { fmt, getDict, type Lang } from "@/lib/i18n";
 import { critRatio, GRADE_BANDS, nextGrade, speedInfo, type CharScore } from "@/lib/score";
@@ -9,10 +10,12 @@ export default function BuildReview({
   c,
   score,
   lang,
+  uid,
 }: {
   c: Character;
   score: CharScore;
   lang: Lang;
+  uid?: string;
 }) {
   const d = getDict(lang);
   const rows = buildStatRows(c, lang);
@@ -120,7 +123,16 @@ export default function BuildReview({
         </div>
       </dl>
 
-      <p className="mt-2 text-[11px] text-muted/80">{d.sc_note}</p>
+      <p className="mt-2 text-[11px] text-muted/80">
+        {d.sc_note}{" "}
+        {d.sc_feedback}{" "}
+        <Link
+          href={`/feedback?about=${encodeURIComponent(`${c.name}${uid ? ` (UID ${uid})` : ""}`)}`}
+          className="text-accent hover:underline"
+        >
+          {d.sc_feedback_link}
+        </Link>
+      </p>
     </div>
   );
 }
