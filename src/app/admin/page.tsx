@@ -11,12 +11,26 @@ type Status = {
   linked: { total: number; viaLink: number };
 };
 
+type Health = {
+  webhook: boolean;
+  test: boolean;
+  cookies: { id: string; ok: boolean; message?: string }[];
+  dead: string[];
+  month: { used: number; budget: number; ratio: number };
+  visitors: { yesterday: { uv: number; pv: number }; today: { uv: number; pv: number } };
+  linked: { total: number; viaLink: number };
+  notes: string[];
+  notified: boolean;
+};
+
 /** 사이트 주인용: 쿠키 풀 상태 보기 (EDIT_ADMIN_KEY 필요) */
 export default function AdminPage() {
   const [key, setKey] = useState("");
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [healthBusy, setHealthBusy] = useState(false);
 
   async function load() {
     setBusy(true);
@@ -34,6 +48,24 @@ export default function AdminPage() {
       setError("요청 실패");
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** 점검 주소를 호출한다. test 면 웹훅도 한 번 울린다 (평소엔 조용히 결과만) */
+  async function runHealth(test: boolean) {
+    setHealthBusy(true);
+    setHealth(null);
+    try {
+      const res = await fetch(`/api/cron/health${test ? "?test=1" : ""}`, {
+        headers: { "x-admin-key": key },
+      });
+      const body = (await res.json()) as Health & { error?: string };
+      if (!res.ok) setError(body.error ?? `오류 ${res.status}`);
+      else setHealth(body);
+    } catch {
+      setError("점검 요청 실패");
+    } finally {
+      setHealthBusy(false);
     }
   }
 
@@ -124,6 +156,65 @@ export default function AdminPage() {
               이어 넣고 재배포합니다.
             </p>
           </div>
+        </div>
+      )}
+      {status && (
+        <div className="rounded-xl border border-card-border bg-card p-5 text-sm">
+          <h2 className="font-bold">점검</h2>
+          <p className="mt-2 text-muted">
+            쿠키가 살아 있는지 호요랩에 직접 물어봅니다. 매일 오전 9시쯤 크론이 하는 것과 같은 일이고,
+            여기서 누르면 <b>알림은 가지 않습니다</b>.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => runHealth(false)}
+              disabled={healthBusy}
+              className="rounded-md border border-card-border bg-background/50 px-3 py-1.5 text-xs font-medium hover:border-accent/70 disabled:opacity-40"
+            >
+              {healthBusy ? "확인 중…" : "지금 점검"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runHealth(true)}
+              disabled={healthBusy}
+              className="rounded-md border border-card-border bg-background/50 px-3 py-1.5 text-xs font-medium hover:border-accent/70 disabled:opacity-40"
+              title="디스코드 웹훅이 제대로 걸려 있는지 확인용으로 한 번 보냅니다"
+            >
+              알림 시험 보내기
+            </button>
+          </div>
+          {health && (
+            <div className="mt-3 space-y-1 rounded-lg border border-card-border bg-background/40 p-3 text-xs">
+              <p>
+                사이트 쿠키{" "}
+                <b className={health.dead.length === 0 ? "text-emerald-300" : "text-red-300"}>
+                  {health.cookies.length - health.dead.length}/{health.cookies.length}개 정상
+                </b>
+                {health.dead.length > 0 && ` — 만료: ${health.dead.join(", ")}`}
+              </p>
+              <p>
+                어제 방문 {health.visitors.yesterday.uv}명 · {health.visitors.yesterday.pv}회, 오늘 지금까지{" "}
+                {health.visitors.today.uv}명 · 등록 사용자 {health.linked.total}명 (직접 연결{" "}
+                {health.linked.viaLink}명)
+              </p>
+              <p>
+                이번 달 요청 {health.month.used.toLocaleString("ko-KR")}/
+                {health.month.budget.toLocaleString("ko-KR")} ({Math.round(health.month.ratio * 100)}%)
+              </p>
+              {health.notes.length > 0 && (
+                <ul className="list-disc pl-4 text-amber-300">
+                  {health.notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-muted">
+                웹훅 {health.webhook ? "설정됨" : "없음 (ALERT_WEBHOOK 미설정 — 서버 로그에만 남습니다)"}
+                {health.test && (health.notified ? " · 시험 알림을 보냈습니다" : " · 시험 알림 전송 실패")}
+              </p>
+            </div>
+          )}
         </div>
       )}
       {status && (
