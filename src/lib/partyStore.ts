@@ -4,7 +4,7 @@ import type { Party, PartyFile } from "./parties";
 
 /**
  * 파티 편성 저장소.
- *  - UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN 이 있으면 Upstash Redis (Vercel 등 파일을 못 쓰는 곳)
+ *  - UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN (또는 Vercel 연동의 KV_REST_API_URL / KV_REST_API_TOKEN) 이 있으면 Upstash Redis
  *  - 없으면 data/parties/<uid>.json (로컬·VPS)
  */
 
@@ -17,9 +17,10 @@ function fileOf(uid: string): string {
   return path.join(process.cwd(), "data", "parties", `${uid}.json`);
 }
 
+// Vercel 의 Upstash 연동은 KV_REST_API_* 이름으로 넣어 주므로 둘 다 받는다
 function redis(): { url: string; token: string } | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
   return url && token ? { url, token } : null;
 }
 

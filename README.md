@@ -46,7 +46,7 @@
 | `HOYOLAB_LTUID_V2`, `HOYOLAB_LTOKEN_V2` | HoYoLAB 쿠키 (브라우저 F12 → Application → Cookies → hoyolab.com). 없으면 전시만 |
 | `EDIT_SECRET` | 편집 토큰·확인 코드 서명용 (아무 긴 문자열) |
 | `EDIT_ADMIN_KEY` | 사이트 주인용 편집 키 |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | 선택. 있으면 파티를 Redis 에 저장 (Vercel 처럼 파일을 못 쓰는 곳) |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (또는 Vercel Upstash 연동이 넣는 `KV_REST_API_URL`, `KV_REST_API_TOKEN`) | 선택. 있으면 파티를 Redis 에 저장 (Vercel 처럼 파일을 못 쓰는 곳) |
 
 ## 개발
 
