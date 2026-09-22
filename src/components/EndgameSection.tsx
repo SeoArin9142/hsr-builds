@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Collapsible from "./Collapsible";
 import GameImage from "./GameImage";
 import { SectionTitle } from "./Badges";
 import type { EndgameMode, EndgameRecord } from "@/lib/endgame";
@@ -109,11 +110,13 @@ export default function EndgameSection({
   return (
     <section>
       <SectionTitle right={time ? fmt(d.eg_asof, { time }) : undefined}>{d.eg_title}</SectionTitle>
-      <div className="grid gap-4 lg:grid-cols-3">
-        {records.map((rec) => (
-          <Record key={rec.mode} uid={uid} rec={rec} lang={lang} />
-        ))}
-      </div>
+      <Collapsible storageKey="endgame" collapsedHeight={420}>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {records.map((rec) => (
+            <Record key={rec.mode} uid={uid} rec={rec} lang={lang} />
+          ))}
+        </div>
+      </Collapsible>
     </section>
   );
 }

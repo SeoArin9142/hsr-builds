@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import EndgameSection from "@/components/EndgameSection";
 import ErrorBox from "@/components/ErrorBox";
 import GameImage from "@/components/GameImage";
+import Collapsible from "@/components/Collapsible";
 import PartyCard from "@/components/PartyCard";
 import PartyEditor from "@/components/PartyEditor";
 import RosterGrid from "@/components/RosterGrid";
@@ -110,6 +111,23 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             <span>{fmt(d.profile_relics, { n: space.relic_count.toLocaleString(LANGS[lang].locale) })}</span>
             <span>{fmt(d.profile_achievements, { n: space.achievement_count })}</span>
           </div>
+          {/* 엔드 콘텐츠 성적 요약 — 자세한 편성은 아래 기록 섹션에 */}
+          {endgame.records.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {endgame.records.map((r) => (
+                <span
+                  key={r.mode}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-card-border bg-background/50 px-2.5 py-0.5 text-xs"
+                  title={r.maxFloor}
+                >
+                  <span className="text-muted">
+                    {r.mode === "moc" ? d.eg_moc : r.mode === "pf" ? d.eg_pf : d.eg_as}
+                  </span>
+                  <span className="font-semibold text-gold">{fmt(d.eg_stars, { n: r.stars })}</span>
+                </span>
+              ))}
+            </div>
+          )}
           {player.signature && (
             <p className="mt-2 text-sm text-foreground/75">{player.signature}</p>
           )}
@@ -170,14 +188,16 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             <p>{d.parties_empty_3}</p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {parties.map((party) => {
-              const members = Array.from({ length: 4 }, (_, i) =>
-                party.members[i] ? resolveMember(party.members[i], byId, index, lang) : null,
-              );
-              return <PartyCard key={party.no} uid={uid} party={party} members={members} lang={lang} />;
-            })}
-          </div>
+          <Collapsible storageKey="parties" collapsedHeight={360}>
+            <div className="grid gap-4 md:grid-cols-2">
+              {parties.map((party) => {
+                const members = Array.from({ length: 4 }, (_, i) =>
+                  party.members[i] ? resolveMember(party.members[i], byId, index, lang) : null,
+                );
+                return <PartyCard key={party.no} uid={uid} party={party} members={members} lang={lang} />;
+              })}
+            </div>
+          </Collapsible>
         )}
       </section>
 
